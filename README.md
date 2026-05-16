@@ -44,5 +44,5 @@ mvn spring-boot:run
 应用启动后可通过以下命令检查服务状态：
 
 ```bash
-curl http://localhost:8080/actuator/health
+curl http://localhost:8080/api/health
 ```

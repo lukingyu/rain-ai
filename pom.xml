@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>ai.rain</groupId>
+    <groupId>com.rain</groupId>
     <artifactId>rain-ai</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0-SNAPSHOT</version>
     <name>rain-ai</name>
-    <description>Rain AI Agent Platform</description>
+    <description>企业知识库与智能任务执行 AI 后端平台</description>
 
     <properties>
         <java.version>21</java.version>
