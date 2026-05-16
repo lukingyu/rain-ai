@@ -23,17 +23,20 @@ public class DocumentIngestionService {
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeDocumentRepository documentRepository;
     private final AgentTaskRepository taskRepository;
+    private final DocumentIngestionMessagePublisher messagePublisher;
     private final Path uploadDir;
 
     public DocumentIngestionService(
             KnowledgeBaseService knowledgeBaseService,
             KnowledgeDocumentRepository documentRepository,
             AgentTaskRepository taskRepository,
+            DocumentIngestionMessagePublisher messagePublisher,
             @Value("${rain.ai.storage.upload-dir}") String uploadDir
     ) {
         this.knowledgeBaseService = knowledgeBaseService;
         this.documentRepository = documentRepository;
         this.taskRepository = taskRepository;
+        this.messagePublisher = messagePublisher;
         this.uploadDir = Path.of(uploadDir);
     }
 
@@ -79,8 +82,27 @@ public class DocumentIngestionService {
                 now
         );
         taskRepository.save(task);
+        publishAfterCommit(document, task);
 
         return new DocumentUploadResult(document, task);
+    }
+
+    private void publishAfterCommit(KnowledgeDocument document, AgentTask task) {
+        DocumentIngestionMessage message = new DocumentIngestionMessage(
+                task.id(),
+                document.id(),
+                document.knowledgeBaseId(),
+                document.workspaceId(),
+                document.storagePath()
+        );
+        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
+                new org.springframework.transaction.support.TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        messagePublisher.publish(message);
+                    }
+                }
+        );
     }
 
     private Path saveFile(UUID documentId, MultipartFile file) {

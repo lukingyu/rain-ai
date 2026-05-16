@@ -36,3 +36,8 @@ rain:
       default-timeout-seconds: 120
     storage:
       upload-dir: data/uploads
+    rocketmq:
+      name-server: localhost:9876
+      producer-group: rain-ai-producer-group
+      topics:
+        document-ingestion: rain-ai-document-ingestion
