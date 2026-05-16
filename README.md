@@ -2,6 +2,13 @@
 
 Rain AI Agent Platform 是一个基于 Spring Boot 的 AI Agent 平台项目基础骨架，计划集成 PostgreSQL、Redis、RocketMQ 和 OpenAI 兼容模型能力。
 
+## 当前进度
+
+- 已完成 Spring Boot 3.5 + JDK 21 项目骨架。
+- 已完成统一响应和统一异常处理。
+- 已完成健康检查接口。
+- 已完成 PostgreSQL/pgvector、Redis、RocketMQ 本地容器配置。
+
 ## 本地环境
 
 建议准备以下环境：
