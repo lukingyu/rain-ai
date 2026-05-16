@@ -1,1 +1,16 @@
 .worktrees/
+target/
+*.log
+*.tmp
+*.swp
+
+.idea/
+*.iml
+.vscode/
+
+.env
+.DS_Store
+Thumbs.db
+
+logs/
+data/
