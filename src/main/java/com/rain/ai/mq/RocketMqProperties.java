@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record RocketMqProperties(
         String nameServer,
         String producerGroup,
+        String documentConsumerGroup,
         Topics topics
 ) {
 

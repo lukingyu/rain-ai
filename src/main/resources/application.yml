@@ -39,5 +39,6 @@ rain:
     rocketmq:
       name-server: localhost:9876
       producer-group: rain-ai-producer-group
+      document-consumer-group: rain-ai-document-ingestion-consumer-group
       topics:
         document-ingestion: rain-ai-document-ingestion

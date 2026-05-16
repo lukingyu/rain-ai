@@ -65,4 +65,21 @@ public class AgentTaskRepository {
                 ))
                 .optional();
     }
+
+    public void updateStatus(UUID id, TaskStatus status, String result, String errorMessage) {
+        jdbcClient.sql("""
+                        UPDATE agent_task
+                        SET status = :status,
+                            result = CAST(:result AS jsonb),
+                            error_message = :errorMessage,
+                            updated_at = :updatedAt
+                        WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("status", status.name())
+                .param("result", result)
+                .param("errorMessage", errorMessage)
+                .param("updatedAt", Timestamp.from(Instant.now()))
+                .update();
+    }
 }

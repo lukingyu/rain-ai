@@ -69,6 +69,19 @@ public class KnowledgeDocumentRepository {
                 .list();
     }
 
+    public void updateStatus(UUID id, DocumentStatus status, String errorMessage) {
+        jdbcClient.sql("""
+                        UPDATE knowledge_document
+                        SET status = :status, error_message = :errorMessage, updated_at = :updatedAt
+                        WHERE id = :id
+                        """)
+                .param("id", id)
+                .param("status", status.name())
+                .param("errorMessage", errorMessage)
+                .param("updatedAt", Timestamp.from(Instant.now()))
+                .update();
+    }
+
     private KnowledgeDocument mapDocument(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         return new KnowledgeDocument(
                 rs.getObject("id", UUID.class),
