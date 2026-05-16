@@ -12,10 +12,17 @@ spring:
     username: rain
     password: rain_pwd
     driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
   data:
     redis:
       host: localhost
       port: 6379
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 60MB
   ai:
     openai:
       api-key: ${OPENAI_API_KEY:replace-with-your-api-key}
@@ -27,3 +34,5 @@ rain:
       default-id: default-workspace
     task:
       default-timeout-seconds: 120
+    storage:
+      upload-dir: data/uploads

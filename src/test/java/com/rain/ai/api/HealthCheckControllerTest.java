@@ -12,11 +12,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(
         properties = {
-                "spring.ai.openai.api-key=test-key",
-                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.data.jdbc.JdbcRepositoriesAutoConfiguration,"
-                        + "org.springframework.boot.autoconfigure.jdbc.JdbcClientAutoConfiguration,"
-                        + "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration"
+                "spring.ai.openai.api-key=test-key"
         }
 )
 @AutoConfigureMockMvc
