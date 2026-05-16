@@ -40,13 +40,16 @@ services:
   rocketmq-broker:
     image: apache/rocketmq:5.3.2
     container_name: rain-ai-rocketmq-broker
+    user: root
     depends_on:
       - rocketmq-namesrv
     environment:
       NAMESRV_ADDR: rocketmq-namesrv:9876
-    command: ["sh", "mqbroker", "-n", "rocketmq-namesrv:9876", "autoCreateTopicEnable=true"]
+    command: ["sh", "mqbroker", "-c", "/home/rocketmq/rocketmq-5.3.2/conf/broker.conf"]
     ports:
+      - "10909:10909"
       - "${ROCKETMQ_BROKER_PORT:-10911}:10911"
+      - "10912:10912"
     volumes:
       - rain-ai-rocketmq-store:/home/rocketmq/store
 
