@@ -62,7 +62,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.rocketmq</groupId>
-            <artifactId>rocketmq-client-java</artifactId>
+            <artifactId>rocketmq-client</artifactId>
             <version>${rocketmq.version}</version>
         </dependency>
         <dependency>

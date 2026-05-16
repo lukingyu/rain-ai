@@ -1,0 +1,29 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: rain-ai
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: jdbc:postgresql://localhost:5432/rain_ai
+    username: rain
+    password: rain_pwd
+    driver-class-name: org.postgresql.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY:replace-with-your-api-key}
+      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+
+rain:
+  ai:
+    workspace:
+      default-id: default-workspace
+    task:
+      default-timeout-seconds: 120

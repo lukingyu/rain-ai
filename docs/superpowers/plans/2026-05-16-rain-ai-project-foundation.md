@@ -157,7 +157,7 @@ OPENAI_BASE_URL=https://api.openai.com
         </dependency>
         <dependency>
             <groupId>org.apache.rocketmq</groupId>
-            <artifactId>rocketmq-client-java</artifactId>
+            <artifactId>rocketmq-client</artifactId>
             <version>${rocketmq.version}</version>
         </dependency>
         <dependency>
@@ -282,6 +282,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 @SpringBootTest(
         properties = {
                 "spring.ai.openai.api-key=test-key",
+                "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.jdbc.DataSourceAutoConfiguration,"
+                        + "org.springframework.boot.autoconfigure.data.jdbc.JdbcRepositoriesAutoConfiguration,"
+                        + "org.springframework.boot.autoconfigure.jdbc.JdbcClientAutoConfiguration,"
+                        + "org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreAutoConfiguration",
                 "spring.datasource.url=jdbc:postgresql://localhost:5432/rain_ai",
                 "spring.datasource.username=rain",
                 "spring.datasource.password=rain_pwd"
@@ -294,6 +298,8 @@ class RainAiApplicationTests {
     }
 }
 ```
+
+说明：Task 2 只验证应用骨架上下文，不启动真实 PostgreSQL。应用上下文测试需要排除真实数据库和 pgvector 自动配置；基础设施会在 Task 6 通过 Docker Compose 启动。
 
 - [ ] **Step 2: 运行测试并确认失败**
 
@@ -368,7 +374,7 @@ Run:
 mvn -q test -Dtest=RainAiApplicationTests
 ```
 
-Expected: PASS，退出码为 `0`。
+Expected: PASS，退出码为 `0`。此测试排除真实数据库和 pgvector 自动配置，因为 PostgreSQL、Redis、RocketMQ 等基础设施在后续 Task 6 才启动。
 
 - [ ] **Step 6: 提交启动骨架**
 
