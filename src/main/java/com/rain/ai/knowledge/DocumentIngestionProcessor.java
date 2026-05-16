@@ -2,6 +2,7 @@ package com.rain.ai.knowledge;
 
 import com.rain.ai.task.AgentTaskRepository;
 import com.rain.ai.task.TaskStatus;
+import com.rain.ai.embedding.EmbeddingService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,17 +20,20 @@ public class DocumentIngestionProcessor {
     private final DocumentChunkRepository chunkRepository;
     private final AgentTaskRepository taskRepository;
     private final TextChunker textChunker;
+    private final EmbeddingService embeddingService;
 
     public DocumentIngestionProcessor(
             KnowledgeDocumentRepository documentRepository,
             DocumentChunkRepository chunkRepository,
             AgentTaskRepository taskRepository,
-            TextChunker textChunker
+            TextChunker textChunker,
+            EmbeddingService embeddingService
     ) {
         this.documentRepository = documentRepository;
         this.chunkRepository = chunkRepository;
         this.taskRepository = taskRepository;
         this.textChunker = textChunker;
+        this.embeddingService = embeddingService;
     }
 
     @Transactional
@@ -43,13 +47,15 @@ public class DocumentIngestionProcessor {
 
             List<String> texts = textChunker.split(text);
             chunkRepository.deleteByDocumentId(message.documentId());
-            chunkRepository.saveAll(toChunks(message, texts));
+            List<DocumentChunk> chunks = toChunks(message, texts);
+            chunkRepository.saveAll(chunks);
+            embeddingService.rebuildDocumentEmbeddings(message.documentId(), chunks);
 
             documentRepository.updateStatus(message.documentId(), DocumentStatus.COMPLETED, null);
             taskRepository.updateStatus(
                     message.taskId(),
                     TaskStatus.COMPLETED,
-                    "{\"chunkCount\":%d}".formatted(texts.size()),
+                    "{\"chunkCount\":%d,\"embeddingEnabled\":%s}".formatted(texts.size(), embeddingService.available()),
                     null
             );
         } catch (Exception exception) {

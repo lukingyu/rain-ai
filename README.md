@@ -61,9 +61,11 @@ curl http://localhost:8080/api/health
 1. 上传文档后写入数据库任务。
 2. RocketMQ 消费文档摄取消息。
 3. 文档内容切分为知识分片。
-4. 问答接口从知识分片中召回上下文。
-5. Prompt Engine 组装系统提示词和用户提示词。
-6. 配置真实 `OPENAI_API_KEY` 时调用 Spring AI ChatModel，未配置时使用本地降级回答。
+4. 配置真实 `OPENAI_API_KEY` 时，为知识分片生成 embedding 并写入 pgvector。
+5. 问答接口优先使用 pgvector 向量相似度召回上下文。
+6. 未配置真实模型 Key 时，自动降级为关键词召回，保证本地开发链路可运行。
+7. Prompt Engine 组装系统提示词和用户提示词。
+8. 配置真实 `OPENAI_API_KEY` 时调用 Spring AI ChatModel，未配置时使用本地降级回答。
 
 ```bash
 curl -X POST http://localhost:8080/api/rag/ask \
