@@ -15,27 +15,36 @@ public class AgentChatService {
     private final RuleBasedToolPlanner toolPlanner;
     private final AiFunctionCallingAgent aiFunctionCallingAgent;
     private final ToolExecutionService toolExecutionService;
+    private final AgentSessionMemoryService memoryService;
     private final ObjectMapper objectMapper;
 
     public AgentChatService(
             RuleBasedToolPlanner toolPlanner,
             AiFunctionCallingAgent aiFunctionCallingAgent,
             ToolExecutionService toolExecutionService,
+            AgentSessionMemoryService memoryService,
             ObjectMapper objectMapper
     ) {
         this.toolPlanner = toolPlanner;
         this.aiFunctionCallingAgent = aiFunctionCallingAgent;
         this.toolExecutionService = toolExecutionService;
+        this.memoryService = memoryService;
         this.objectMapper = objectMapper;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
+        String sessionId = memoryService.resolveSessionId(request.sessionId());
+        var history = memoryService.recentMessages(sessionId);
+        memoryService.appendUserMessage(sessionId, request.message());
+
         if (aiFunctionCallingAgent.available()) {
-            AiFunctionCallingResult aiResult = aiFunctionCallingAgent.chat(request);
+            AiFunctionCallingResult aiResult = aiFunctionCallingAgent.chat(request, history);
             ToolExecutionResponse firstExecution = aiResult.toolExecutions().isEmpty()
                     ? null
                     : aiResult.toolExecutions().getFirst();
+            memoryService.appendAssistantMessage(sessionId, aiResult.finalAnswer());
             return new AgentChatResponse(
+                    sessionId,
                     request.message(),
                     "SPRING_AI_FUNCTION_CALLING",
                     firstExecution == null ? null : firstExecution.toolName(),
@@ -49,13 +58,16 @@ public class AgentChatService {
         ToolExecutionResponse toolExecution = toolExecutionService.execute(
                 new ToolExecutionRequest(plan.toolName(), plan.arguments())
         );
+        String finalAnswer = buildFinalAnswer(plan.toolName(), toolExecution);
+        memoryService.appendAssistantMessage(sessionId, finalAnswer);
         return new AgentChatResponse(
+                sessionId,
                 request.message(),
                 "RULE_BASED_FALLBACK",
                 plan.toolName(),
                 plan.arguments(),
                 toolExecution,
-                buildFinalAnswer(plan.toolName(), toolExecution)
+                finalAnswer
         );
     }
 

@@ -120,3 +120,9 @@ curl -X POST http://localhost:8080/api/agent/chat \
 - 查询知识库列表：`knowledge_base.list`
 - 查询失败文档：`document.failed.list`
 - 其他知识库问题：`rag.ask`
+
+Agent Chat 支持 Redis 会话记忆：
+
+- 请求不传 `sessionId` 时，系统自动创建新会话。
+- 后续请求带上同一个 `sessionId`，可以延续最近 20 条对话上下文。
+- `GET /api/agent/sessions/{sessionId}/messages` 可以查看当前会话记忆。

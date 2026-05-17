@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
 public record AgentChatRequest(
+        String sessionId,
+
         UUID knowledgeBaseId,
 
         @NotBlank(message = "消息不能为空")

@@ -6,6 +6,7 @@ import com.rain.ai.tool.ToolExecutionService;
 import com.rain.ai.tool.ToolRegistry;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
@@ -44,7 +45,7 @@ public class AiFunctionCallingAgent {
         return chatModelProvider.getIfAvailable() != null && hasRealApiKey();
     }
 
-    public AiFunctionCallingResult chat(AgentChatRequest request) {
+    public AiFunctionCallingResult chat(AgentChatRequest request, List<AgentMemoryMessage> history) {
         if (!available()) {
             return null;
         }
@@ -60,15 +61,21 @@ public class AiFunctionCallingAgent {
                 .temperature(0.1)
                 .build();
 
-        ChatResponse response = chatModelProvider.getObject().call(new Prompt(List.of(
-                new SystemMessage("""
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage("""
                         你是 Rain AI 的企业知识库智能助手。
                         你必须优先使用可用工具获得真实结果，不要凭空编造。
                         如果用户要查询知识库、失败文档或基于知识库问答，必须调用最合适的工具。
                         工具执行完成后，用简洁中文总结结果。
-                        """),
-                new UserMessage(request.message())
-        ), options));
+                        """));
+        for (AgentMemoryMessage memoryMessage : history) {
+            if ("user".equals(memoryMessage.role())) {
+                messages.add(new UserMessage(memoryMessage.content()));
+            }
+        }
+        messages.add(new UserMessage(request.message()));
+
+        ChatResponse response = chatModelProvider.getObject().call(new Prompt(messages, options));
 
         String answer = response.getResult().getOutput().getText();
         return new AiFunctionCallingResult(answer, executions);
