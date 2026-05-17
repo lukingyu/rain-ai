@@ -87,6 +87,48 @@ public class DocumentIngestionService {
         return new DocumentUploadResult(document, task);
     }
 
+    @Transactional
+    public DocumentUploadResult reingest(UUID knowledgeBaseId, UUID documentId) {
+        KnowledgeDocument document = documentRepository.findById(documentId)
+                .filter(value -> value.knowledgeBaseId().equals(knowledgeBaseId))
+                .orElseThrow(() -> new BizException(ErrorCode.资源不存在, "文档不存在"));
+
+        UUID taskId = UUID.randomUUID();
+        Instant now = Instant.now();
+        KnowledgeDocument pendingDocument = new KnowledgeDocument(
+                document.id(),
+                document.workspaceId(),
+                document.knowledgeBaseId(),
+                document.originalFilename(),
+                document.contentType(),
+                document.sizeBytes(),
+                document.storagePath(),
+                DocumentStatus.PENDING,
+                null,
+                document.createdAt(),
+                now
+        );
+        documentRepository.updateStatus(document.id(), DocumentStatus.PENDING, null);
+
+        AgentTask task = new AgentTask(
+                taskId,
+                document.workspaceId(),
+                TaskType.DOCUMENT_INGESTION,
+                document.id(),
+                TaskStatus.PENDING,
+                """
+                        {"documentId":"%s","knowledgeBaseId":"%s","reingest":true}
+                        """.formatted(document.id(), document.knowledgeBaseId()).trim(),
+                null,
+                null,
+                now,
+                now
+        );
+        taskRepository.save(task);
+        publishAfterCommit(pendingDocument, task);
+        return new DocumentUploadResult(pendingDocument, task);
+    }
+
     private void publishAfterCommit(KnowledgeDocument document, AgentTask task) {
         DocumentIngestionMessage message = new DocumentIngestionMessage(
                 task.id(),

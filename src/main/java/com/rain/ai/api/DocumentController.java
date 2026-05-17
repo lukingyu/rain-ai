@@ -29,4 +29,12 @@ public class DocumentController {
     ) {
         return ApiResponse.success(documentIngestionService.upload(knowledgeBaseId, file));
     }
+
+    @PostMapping("/{documentId}/reingest")
+    public ApiResponse<DocumentUploadResult> reingest(
+            @PathVariable UUID knowledgeBaseId,
+            @PathVariable UUID documentId
+    ) {
+        return ApiResponse.success(documentIngestionService.reingest(knowledgeBaseId, documentId));
+    }
 }
