@@ -27,7 +27,7 @@ public class AiAgentPlanner {
     private final SkillRegistry skillRegistry;
     private final AgentPlanJsonParser planJsonParser;
     private final ObjectMapper objectMapper;
-    private final String openAiApiKey;
+    private final String chatApiKey;
 
     public AiAgentPlanner(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -35,14 +35,14 @@ public class AiAgentPlanner {
             SkillRegistry skillRegistry,
             AgentPlanJsonParser planJsonParser,
             ObjectMapper objectMapper,
-            @Value("${spring.ai.openai.api-key:}") String openAiApiKey
+            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
     ) {
         this.chatModelProvider = chatModelProvider;
         this.toolRegistry = toolRegistry;
         this.skillRegistry = skillRegistry;
         this.planJsonParser = planJsonParser;
         this.objectMapper = objectMapper;
-        this.openAiApiKey = openAiApiKey;
+        this.chatApiKey = chatApiKey;
     }
 
     public boolean available() {
@@ -116,9 +116,9 @@ public class AiAgentPlanner {
     }
 
     private boolean hasRealApiKey() {
-        return openAiApiKey != null
-                && !openAiApiKey.isBlank()
-                && !openAiApiKey.equals("replace-with-your-api-key")
-                && !openAiApiKey.equals("test-key");
+        return chatApiKey != null
+                && !chatApiKey.isBlank()
+                && !chatApiKey.equals("replace-with-your-api-key")
+                && !chatApiKey.equals("test-key");
     }
 }

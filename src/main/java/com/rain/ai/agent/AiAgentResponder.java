@@ -23,16 +23,16 @@ public class AiAgentResponder {
 
     private final ObjectProvider<ChatModel> chatModelProvider;
     private final ObjectMapper objectMapper;
-    private final String openAiApiKey;
+    private final String chatApiKey;
 
     public AiAgentResponder(
             ObjectProvider<ChatModel> chatModelProvider,
             ObjectMapper objectMapper,
-            @Value("${spring.ai.openai.api-key:}") String openAiApiKey
+            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
     ) {
         this.chatModelProvider = chatModelProvider;
         this.objectMapper = objectMapper;
-        this.openAiApiKey = openAiApiKey;
+        this.chatApiKey = chatApiKey;
     }
 
     public String answer(AgentChatRequest request, AgentPlan plan, Object executionResult) {
@@ -112,9 +112,9 @@ public class AiAgentResponder {
     }
 
     private boolean hasRealApiKey() {
-        return openAiApiKey != null
-                && !openAiApiKey.isBlank()
-                && !openAiApiKey.equals("replace-with-your-api-key")
-                && !openAiApiKey.equals("test-key");
+        return chatApiKey != null
+                && !chatApiKey.isBlank()
+                && !chatApiKey.equals("replace-with-your-api-key")
+                && !chatApiKey.equals("test-key");
     }
 }

@@ -25,7 +25,7 @@ public class AiFunctionCallingAgent {
     private final ObjectProvider<ChatModel> chatModelProvider;
     private final ToolRegistry toolRegistry;
     private final SpringAiToolCallbackFactory callbackFactory;
-    private final String openAiApiKey;
+    private final String chatApiKey;
 
     public AiFunctionCallingAgent(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -33,12 +33,12 @@ public class AiFunctionCallingAgent {
             ToolExecutionService toolExecutionService,
             ObjectMapper objectMapper,
             AiToolNameMapper toolNameMapper,
-            @Value("${spring.ai.openai.api-key:}") String openAiApiKey
+            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
     ) {
         this.chatModelProvider = chatModelProvider;
         this.toolRegistry = toolRegistry;
         this.callbackFactory = new SpringAiToolCallbackFactory(toolExecutionService, objectMapper, toolNameMapper);
-        this.openAiApiKey = openAiApiKey;
+        this.chatApiKey = chatApiKey;
     }
 
     public boolean available() {
@@ -82,9 +82,9 @@ public class AiFunctionCallingAgent {
     }
 
     private boolean hasRealApiKey() {
-        return openAiApiKey != null
-                && !openAiApiKey.isBlank()
-                && !openAiApiKey.equals("replace-with-your-api-key")
-                && !openAiApiKey.equals("test-key");
+        return chatApiKey != null
+                && !chatApiKey.isBlank()
+                && !chatApiKey.equals("replace-with-your-api-key")
+                && !chatApiKey.equals("test-key");
     }
 }

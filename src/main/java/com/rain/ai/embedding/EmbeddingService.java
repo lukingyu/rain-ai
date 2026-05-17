@@ -16,18 +16,18 @@ public class EmbeddingService {
 
     private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final EmbeddingRecordRepository embeddingRecordRepository;
-    private final String openAiApiKey;
+    private final String embeddingApiKey;
     private final String embeddingModelName;
 
     public EmbeddingService(
             ObjectProvider<EmbeddingModel> embeddingModelProvider,
             EmbeddingRecordRepository embeddingRecordRepository,
-            @Value("${spring.ai.openai.api-key:}") String openAiApiKey,
-            @Value("${spring.ai.openai.embedding.options.model:text-embedding-3-small}") String embeddingModelName
+            @Value("${spring.ai.openai.embedding.api-key:}") String embeddingApiKey,
+            @Value("${spring.ai.openai.embedding.options.model:text-embedding-v4}") String embeddingModelName
     ) {
         this.embeddingModelProvider = embeddingModelProvider;
         this.embeddingRecordRepository = embeddingRecordRepository;
-        this.openAiApiKey = openAiApiKey;
+        this.embeddingApiKey = embeddingApiKey;
         this.embeddingModelName = embeddingModelName;
     }
 
@@ -70,10 +70,10 @@ public class EmbeddingService {
     }
 
     private boolean hasRealApiKey() {
-        return openAiApiKey != null
-                && !openAiApiKey.isBlank()
-                && !openAiApiKey.equals("replace-with-your-api-key")
-                && !openAiApiKey.equals("test-key");
+        return embeddingApiKey != null
+                && !embeddingApiKey.isBlank()
+                && !embeddingApiKey.equals("replace-with-your-api-key")
+                && !embeddingApiKey.equals("test-key");
     }
 
     private String toVectorLiteral(float[] vector) {

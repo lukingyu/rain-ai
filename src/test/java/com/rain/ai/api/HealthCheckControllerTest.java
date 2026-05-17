@@ -12,7 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(
         properties = {
-                "spring.ai.openai.api-key=test-key"
+                "spring.ai.openai.chat.api-key=test-key",
+                "spring.ai.openai.embedding.api-key=test-key"
         }
 )
 @AutoConfigureMockMvc

@@ -15,14 +15,14 @@ import java.util.List;
 public class AiAnswerClient {
 
     private final ObjectProvider<ChatModel> chatModelProvider;
-    private final String openAiApiKey;
+    private final String chatApiKey;
 
     public AiAnswerClient(
             ObjectProvider<ChatModel> chatModelProvider,
-            @Value("${spring.ai.openai.api-key:}") String openAiApiKey
+            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
     ) {
         this.chatModelProvider = chatModelProvider;
-        this.openAiApiKey = openAiApiKey;
+        this.chatApiKey = chatApiKey;
     }
 
     public AiAnswer answer(RagPrompt prompt, List<RagCitation> citations) {
@@ -38,10 +38,10 @@ public class AiAnswerClient {
     }
 
     private boolean hasRealApiKey() {
-        return openAiApiKey != null
-                && !openAiApiKey.isBlank()
-                && !openAiApiKey.equals("replace-with-your-api-key")
-                && !openAiApiKey.equals("test-key");
+        return chatApiKey != null
+                && !chatApiKey.isBlank()
+                && !chatApiKey.equals("replace-with-your-api-key")
+                && !chatApiKey.equals("test-key");
     }
 
     private String localAnswer(List<RagCitation> citations) {

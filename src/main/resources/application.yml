@@ -24,9 +24,29 @@ spring:
       max-file-size: 50MB
       max-request-size: 60MB
   ai:
+    model:
+      chat: openai
+      embedding: openai
+      image: none
+      moderation: none
+      audio:
+        speech: none
+        transcription: none
     openai:
-      api-key: ${OPENAI_API_KEY:replace-with-your-api-key}
-      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+#      api-key: ${OPENAI_API_KEY:replace-with-your-api-key}
+#      base-url: ${OPENAI_BASE_URL:https://api.openai.com}
+      chat:
+        api-key: ${DEEPSEEK_API_KEY:replace-with-your-api-key}
+        base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
+        options:
+          model: deepseek-v4-flash
+          temperature: 0.1
+      embedding:
+        api-key: ${DASHSCOPE_API_KEY:replace-with-your-api-key}
+        base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+        options:
+          model: text-embedding-v4
+          dimensions: 1536
 
 rain:
   ai:
