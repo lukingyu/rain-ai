@@ -92,3 +92,26 @@ curl -X POST http://localhost:8080/api/tools/execute \
   -H "Content-Type: application/json" \
   -d "{\"toolName\":\"knowledge_base.list\",\"arguments\":{}}"
 ```
+
+## Task 查询
+
+工具执行和文档摄取都会写入 `agent_task`，任务不只是执行日志，也用于查询进度、定位失败和后续扩展重试能力。
+
+- `GET /api/tasks/{taskId}`：查询单个任务。
+- `GET /api/tasks?taskType=TOOL_EXECUTION&status=COMPLETED&limit=20`：按类型和状态查询最近任务。
+
+## Agent Chat
+
+当前已经支持规则版 Tool Planner，可以用自然语言触发工具执行：
+
+```bash
+curl -X POST http://localhost:8080/api/agent/chat \
+  -H "Content-Type: application/json" \
+  -d "{\"message\":\"帮我列出有哪些知识库\"}"
+```
+
+当前规则版 Planner 会把自然语言映射到工具：
+
+- 查询知识库列表：`knowledge_base.list`
+- 查询失败文档：`document.failed.list`
+- 其他知识库问题：`rag.ask`

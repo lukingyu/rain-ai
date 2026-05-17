@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -64,6 +65,37 @@ public class AgentTaskRepository {
                         rs.getTimestamp("updated_at").toInstant()
                 ))
                 .optional();
+    }
+
+    public List<AgentTask> findLatest(String workspaceId, TaskType taskType, TaskStatus status, int limit) {
+        return jdbcClient.sql("""
+                        SELECT id, workspace_id, task_type, aggregate_id, status,
+                               payload::text AS payload, result::text AS result,
+                               error_message, created_at, updated_at
+                        FROM agent_task
+                        WHERE workspace_id = :workspaceId
+                          AND (:taskType IS NULL OR task_type = :taskType)
+                          AND (:status IS NULL OR status = :status)
+                        ORDER BY updated_at DESC
+                        LIMIT :limit
+                        """)
+                .param("workspaceId", workspaceId)
+                .param("taskType", taskType == null ? null : taskType.name())
+                .param("status", status == null ? null : status.name())
+                .param("limit", limit)
+                .query((rs, rowNum) -> new AgentTask(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("workspace_id"),
+                        TaskType.valueOf(rs.getString("task_type")),
+                        rs.getObject("aggregate_id", UUID.class),
+                        TaskStatus.valueOf(rs.getString("status")),
+                        rs.getString("payload"),
+                        rs.getString("result"),
+                        rs.getString("error_message"),
+                        rs.getTimestamp("created_at").toInstant(),
+                        rs.getTimestamp("updated_at").toInstant()
+                ))
+                .list();
     }
 
     public void updateStatus(UUID id, TaskStatus status, String result, String errorMessage) {
