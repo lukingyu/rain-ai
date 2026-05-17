@@ -2,6 +2,9 @@ package com.rain.ai.api;
 
 import com.rain.ai.common.api.ApiResponse;
 import com.rain.ai.skill.SkillDefinition;
+import com.rain.ai.skill.SkillExecutionRequest;
+import com.rain.ai.skill.SkillExecutionResponse;
+import com.rain.ai.skill.SkillExecutionService;
 import com.rain.ai.skill.SkillRegistry;
 import com.rain.ai.tool.ToolDefinition;
 import com.rain.ai.tool.ToolExecutionRequest;
@@ -24,15 +27,18 @@ public class ToolController {
     private final ToolRegistry toolRegistry;
     private final ToolExecutionService toolExecutionService;
     private final SkillRegistry skillRegistry;
+    private final SkillExecutionService skillExecutionService;
 
     public ToolController(
             ToolRegistry toolRegistry,
             ToolExecutionService toolExecutionService,
-            SkillRegistry skillRegistry
+            SkillRegistry skillRegistry,
+            SkillExecutionService skillExecutionService
     ) {
         this.toolRegistry = toolRegistry;
         this.toolExecutionService = toolExecutionService;
         this.skillRegistry = skillRegistry;
+        this.skillExecutionService = skillExecutionService;
     }
 
     @GetMapping("/tools")
@@ -48,5 +54,10 @@ public class ToolController {
     @GetMapping("/skills")
     public ApiResponse<List<SkillDefinition>> listSkills() {
         return ApiResponse.success(skillRegistry.listDefinitions());
+    }
+
+    @PostMapping("/skills/execute")
+    public ApiResponse<SkillExecutionResponse> executeSkill(@Valid @RequestBody SkillExecutionRequest request) {
+        return ApiResponse.success(skillExecutionService.execute(request));
     }
 }
