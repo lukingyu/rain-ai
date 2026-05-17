@@ -2,8 +2,9 @@ package com.rain.ai.agent;
 
 import java.util.Map;
 
-public record ToolPlan(
-        String toolName,
+public record AgentPlan(
+        AgentPlanType type,
+        String name,
         Map<String, Object> arguments
 ) {
 }
