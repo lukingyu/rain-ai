@@ -31,6 +31,13 @@ public class ToolRegistry {
                 .toList();
     }
 
+    public List<ToolHandler> listHandlers() {
+        return handlers.values()
+                .stream()
+                .sorted(Comparator.comparing(handler -> handler.definition().name()))
+                .toList();
+    }
+
     public ToolHandler getRequired(String toolName) {
         ToolHandler handler = handlers.get(toolName);
         if (handler == null) {

@@ -102,7 +102,7 @@ curl -X POST http://localhost:8080/api/tools/execute \
 
 ## Agent Chat
 
-当前已经支持规则版 Tool Planner，可以用自然语言触发工具执行：
+当前已经支持 Agent Chat，可以用自然语言触发工具执行：
 
 ```bash
 curl -X POST http://localhost:8080/api/agent/chat \
@@ -110,7 +110,12 @@ curl -X POST http://localhost:8080/api/agent/chat \
   -d "{\"message\":\"帮我列出有哪些知识库\"}"
 ```
 
-当前规则版 Planner 会把自然语言映射到工具：
+执行策略：
+
+- 配置真实 `OPENAI_API_KEY` 时，使用 Spring AI `ToolCallback` 进行 Function Calling，由模型选择工具。
+- 未配置真实模型 Key 时，自动降级到规则版 Planner，保证本地开发链路可运行。
+
+当前可选择的工具：
 
 - 查询知识库列表：`knowledge_base.list`
 - 查询失败文档：`document.failed.list`

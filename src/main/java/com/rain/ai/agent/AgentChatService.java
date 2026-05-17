@@ -7,30 +7,51 @@ import com.rain.ai.tool.ToolExecutionResponse;
 import com.rain.ai.tool.ToolExecutionService;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+
 @Service
 public class AgentChatService {
 
     private final RuleBasedToolPlanner toolPlanner;
+    private final AiFunctionCallingAgent aiFunctionCallingAgent;
     private final ToolExecutionService toolExecutionService;
     private final ObjectMapper objectMapper;
 
     public AgentChatService(
             RuleBasedToolPlanner toolPlanner,
+            AiFunctionCallingAgent aiFunctionCallingAgent,
             ToolExecutionService toolExecutionService,
             ObjectMapper objectMapper
     ) {
         this.toolPlanner = toolPlanner;
+        this.aiFunctionCallingAgent = aiFunctionCallingAgent;
         this.toolExecutionService = toolExecutionService;
         this.objectMapper = objectMapper;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
+        if (aiFunctionCallingAgent.available()) {
+            AiFunctionCallingResult aiResult = aiFunctionCallingAgent.chat(request);
+            ToolExecutionResponse firstExecution = aiResult.toolExecutions().isEmpty()
+                    ? null
+                    : aiResult.toolExecutions().getFirst();
+            return new AgentChatResponse(
+                    request.message(),
+                    "SPRING_AI_FUNCTION_CALLING",
+                    firstExecution == null ? null : firstExecution.toolName(),
+                    Map.of(),
+                    firstExecution,
+                    aiResult.finalAnswer()
+            );
+        }
+
         ToolPlan plan = toolPlanner.plan(request);
         ToolExecutionResponse toolExecution = toolExecutionService.execute(
                 new ToolExecutionRequest(plan.toolName(), plan.arguments())
         );
         return new AgentChatResponse(
                 request.message(),
+                "RULE_BASED_FALLBACK",
                 plan.toolName(),
                 plan.arguments(),
                 toolExecution,

@@ -6,6 +6,7 @@ import java.util.Map;
 
 public record AgentChatResponse(
         String message,
+        String plannerType,
         String selectedToolName,
         Map<String, Object> arguments,
         ToolExecutionResponse toolExecution,
