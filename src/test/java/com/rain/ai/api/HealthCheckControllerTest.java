@@ -30,4 +30,15 @@ class HealthCheckControllerTest {
                 .andExpect(jsonPath("$.data.status").value("UP"))
                 .andExpect(jsonPath("$.data.application").value("rain-ai"));
     }
+
+    @Test
+    void AI配置体检不暴露密钥() throws Exception {
+        mockMvc.perform(get("/api/health/ai"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.chat.configured").value(false))
+                .andExpect(jsonPath("$.data.embedding.configured").value(false))
+                .andExpect(jsonPath("$.data.chat.provider").value("openai-compatible-chat"))
+                .andExpect(jsonPath("$.data.embedding.provider").value("openai-compatible-embedding"));
+    }
 }

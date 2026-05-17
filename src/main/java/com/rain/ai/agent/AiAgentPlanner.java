@@ -2,6 +2,7 @@ package com.rain.ai.agent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rain.ai.runtime.AiRuntimeStatusService;
 import com.rain.ai.skill.SkillRegistry;
 import com.rain.ai.tool.ToolRegistry;
 import org.springframework.ai.chat.messages.Message;
@@ -11,7 +12,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ public class AiAgentPlanner {
     private final SkillRegistry skillRegistry;
     private final AgentPlanJsonParser planJsonParser;
     private final ObjectMapper objectMapper;
-    private final String chatApiKey;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
 
     public AiAgentPlanner(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -35,18 +35,18 @@ public class AiAgentPlanner {
             SkillRegistry skillRegistry,
             AgentPlanJsonParser planJsonParser,
             ObjectMapper objectMapper,
-            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
+            AiRuntimeStatusService aiRuntimeStatusService
     ) {
         this.chatModelProvider = chatModelProvider;
         this.toolRegistry = toolRegistry;
         this.skillRegistry = skillRegistry;
         this.planJsonParser = planJsonParser;
         this.objectMapper = objectMapper;
-        this.chatApiKey = chatApiKey;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
     }
 
     public boolean available() {
-        return chatModelProvider.getIfAvailable() != null && hasRealApiKey();
+        return aiRuntimeStatusService.chatAvailable();
     }
 
     public Optional<AgentPlan> plan(AgentChatRequest request, List<AgentMemoryMessage> history) {
@@ -115,10 +115,4 @@ public class AiAgentPlanner {
         }
     }
 
-    private boolean hasRealApiKey() {
-        return chatApiKey != null
-                && !chatApiKey.isBlank()
-                && !chatApiKey.equals("replace-with-your-api-key")
-                && !chatApiKey.equals("test-key");
-    }
 }

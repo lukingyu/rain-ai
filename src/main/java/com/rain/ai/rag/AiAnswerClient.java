@@ -6,8 +6,8 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import com.rain.ai.runtime.AiRuntimeStatusService;
 
 import java.util.List;
 
@@ -15,19 +15,19 @@ import java.util.List;
 public class AiAnswerClient {
 
     private final ObjectProvider<ChatModel> chatModelProvider;
-    private final String chatApiKey;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
 
     public AiAnswerClient(
             ObjectProvider<ChatModel> chatModelProvider,
-            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
+            AiRuntimeStatusService aiRuntimeStatusService
     ) {
         this.chatModelProvider = chatModelProvider;
-        this.chatApiKey = chatApiKey;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
     }
 
     public AiAnswer answer(RagPrompt prompt, List<RagCitation> citations) {
         ChatModel chatModel = chatModelProvider.getIfAvailable();
-        if (chatModel != null && hasRealApiKey()) {
+        if (chatModel != null && aiRuntimeStatusService.chatAvailable()) {
             ChatResponse response = chatModel.call(new Prompt(List.of(
                     new SystemMessage(prompt.systemPrompt()),
                     new UserMessage(prompt.userPrompt())
@@ -35,13 +35,6 @@ public class AiAnswerClient {
             return new AiAnswer(response.getResult().getOutput().getText(), true);
         }
         return new AiAnswer(localAnswer(citations), false);
-    }
-
-    private boolean hasRealApiKey() {
-        return chatApiKey != null
-                && !chatApiKey.isBlank()
-                && !chatApiKey.equals("replace-with-your-api-key")
-                && !chatApiKey.equals("test-key");
     }
 
     private String localAnswer(List<RagCitation> citations) {

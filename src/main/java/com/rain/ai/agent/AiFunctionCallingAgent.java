@@ -1,6 +1,7 @@
 package com.rain.ai.agent;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rain.ai.runtime.AiRuntimeStatusService;
 import com.rain.ai.tool.ToolExecutionResponse;
 import com.rain.ai.tool.ToolExecutionService;
 import com.rain.ai.tool.ToolRegistry;
@@ -13,7 +14,6 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.ToolCallingChatOptions;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -25,7 +25,7 @@ public class AiFunctionCallingAgent {
     private final ObjectProvider<ChatModel> chatModelProvider;
     private final ToolRegistry toolRegistry;
     private final SpringAiToolCallbackFactory callbackFactory;
-    private final String chatApiKey;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
 
     public AiFunctionCallingAgent(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -33,16 +33,16 @@ public class AiFunctionCallingAgent {
             ToolExecutionService toolExecutionService,
             ObjectMapper objectMapper,
             AiToolNameMapper toolNameMapper,
-            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
+            AiRuntimeStatusService aiRuntimeStatusService
     ) {
         this.chatModelProvider = chatModelProvider;
         this.toolRegistry = toolRegistry;
         this.callbackFactory = new SpringAiToolCallbackFactory(toolExecutionService, objectMapper, toolNameMapper);
-        this.chatApiKey = chatApiKey;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
     }
 
     public boolean available() {
-        return chatModelProvider.getIfAvailable() != null && hasRealApiKey();
+        return aiRuntimeStatusService.chatAvailable();
     }
 
     public AiFunctionCallingResult chat(AgentChatRequest request, List<AgentMemoryMessage> history) {
@@ -81,10 +81,4 @@ public class AiFunctionCallingAgent {
         return new AiFunctionCallingResult(answer, executions);
     }
 
-    private boolean hasRealApiKey() {
-        return chatApiKey != null
-                && !chatApiKey.isBlank()
-                && !chatApiKey.equals("replace-with-your-api-key")
-                && !chatApiKey.equals("test-key");
-    }
 }

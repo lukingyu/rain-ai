@@ -2,6 +2,7 @@ package com.rain.ai.agent;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rain.ai.runtime.AiRuntimeStatusService;
 import com.rain.ai.rag.RagAnswerResponse;
 import com.rain.ai.skill.SkillExecutionResponse;
 import com.rain.ai.skill.SkillStepResult;
@@ -12,7 +13,6 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -23,21 +23,21 @@ public class AiAgentResponder {
 
     private final ObjectProvider<ChatModel> chatModelProvider;
     private final ObjectMapper objectMapper;
-    private final String chatApiKey;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
 
     public AiAgentResponder(
             ObjectProvider<ChatModel> chatModelProvider,
             ObjectMapper objectMapper,
-            @Value("${spring.ai.openai.chat.api-key:}") String chatApiKey
+            AiRuntimeStatusService aiRuntimeStatusService
     ) {
         this.chatModelProvider = chatModelProvider;
         this.objectMapper = objectMapper;
-        this.chatApiKey = chatApiKey;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
     }
 
     public String answer(AgentChatRequest request, AgentPlan plan, Object executionResult) {
         ChatModel chatModel = chatModelProvider.getIfAvailable();
-        if (chatModel != null && hasRealApiKey()) {
+        if (chatModel != null && aiRuntimeStatusService.chatAvailable()) {
             ChatResponse response = chatModel.call(new Prompt(List.of(
                     new SystemMessage("""
                             你是 Rain AI 的企业知识库助手。
@@ -111,10 +111,4 @@ public class AiAgentResponder {
         }
     }
 
-    private boolean hasRealApiKey() {
-        return chatApiKey != null
-                && !chatApiKey.isBlank()
-                && !chatApiKey.equals("replace-with-your-api-key")
-                && !chatApiKey.equals("test-key");
-    }
 }

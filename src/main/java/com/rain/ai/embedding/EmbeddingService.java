@@ -1,6 +1,7 @@
 package com.rain.ai.embedding;
 
 import com.rain.ai.knowledge.DocumentChunk;
+import com.rain.ai.runtime.AiRuntimeStatusService;
 import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,23 +17,23 @@ public class EmbeddingService {
 
     private final ObjectProvider<EmbeddingModel> embeddingModelProvider;
     private final EmbeddingRecordRepository embeddingRecordRepository;
-    private final String embeddingApiKey;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
     private final String embeddingModelName;
 
     public EmbeddingService(
             ObjectProvider<EmbeddingModel> embeddingModelProvider,
             EmbeddingRecordRepository embeddingRecordRepository,
-            @Value("${spring.ai.openai.embedding.api-key:}") String embeddingApiKey,
+            AiRuntimeStatusService aiRuntimeStatusService,
             @Value("${spring.ai.openai.embedding.options.model:text-embedding-v4}") String embeddingModelName
     ) {
         this.embeddingModelProvider = embeddingModelProvider;
         this.embeddingRecordRepository = embeddingRecordRepository;
-        this.embeddingApiKey = embeddingApiKey;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
         this.embeddingModelName = embeddingModelName;
     }
 
     public boolean available() {
-        return embeddingModelProvider.getIfAvailable() != null && hasRealApiKey();
+        return aiRuntimeStatusService.embeddingAvailable();
     }
 
     public void rebuildDocumentEmbeddings(UUID documentId, List<DocumentChunk> chunks) {
@@ -67,13 +68,6 @@ public class EmbeddingService {
             return null;
         }
         return toVectorLiteral(embeddingModelProvider.getObject().embed(question));
-    }
-
-    private boolean hasRealApiKey() {
-        return embeddingApiKey != null
-                && !embeddingApiKey.isBlank()
-                && !embeddingApiKey.equals("replace-with-your-api-key")
-                && !embeddingApiKey.equals("test-key");
     }
 
     private String toVectorLiteral(float[] vector) {
