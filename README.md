@@ -72,3 +72,23 @@ curl -X POST http://localhost:8080/api/rag/ask \
   -H "Content-Type: application/json" \
   -d "{\"knowledgeBaseId\":\"你的知识库ID\",\"question\":\"合同审批规则是什么？\"}"
 ```
+
+## Tool 与 Skill
+
+当前已经支持最小可运行的工具执行框架：
+
+- `GET /api/tools`：查看系统已注册工具。
+- `POST /api/tools/execute`：按工具名和参数执行工具。
+- `GET /api/skills`：查看由工具组合出来的业务技能。
+
+已内置工具：
+
+- `knowledge_base.list`：查询当前工作区知识库列表。
+- `document.failed.list`：查询指定知识库下处理失败的文档。
+- `rag.ask`：复用 RAG 能力基于知识库回答问题。
+
+```bash
+curl -X POST http://localhost:8080/api/tools/execute \
+  -H "Content-Type: application/json" \
+  -d "{\"toolName\":\"knowledge_base.list\",\"arguments\":{}}"
+```

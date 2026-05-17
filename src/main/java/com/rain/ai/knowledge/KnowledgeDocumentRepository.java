@@ -69,6 +69,21 @@ public class KnowledgeDocumentRepository {
                 .list();
     }
 
+    public List<KnowledgeDocument> findByKnowledgeBaseIdAndStatus(UUID knowledgeBaseId, DocumentStatus status) {
+        return jdbcClient.sql("""
+                        SELECT id, workspace_id, knowledge_base_id, original_filename, content_type,
+                               size_bytes, storage_path, status, error_message, created_at, updated_at
+                        FROM knowledge_document
+                        WHERE knowledge_base_id = :knowledgeBaseId
+                          AND status = :status
+                        ORDER BY updated_at DESC
+                        """)
+                .param("knowledgeBaseId", knowledgeBaseId)
+                .param("status", status.name())
+                .query(this::mapDocument)
+                .list();
+    }
+
     public void updateStatus(UUID id, DocumentStatus status, String errorMessage) {
         jdbcClient.sql("""
                         UPDATE knowledge_document
