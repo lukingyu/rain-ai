@@ -10,13 +10,13 @@ import com.rain.ai.tool.ToolExecutionResponse;
 import com.rain.ai.tool.ToolExecutionService;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AgentChatService {
 
     private final RuleBasedToolPlanner toolPlanner;
-    private final AiFunctionCallingAgent aiFunctionCallingAgent;
+    private final AiAgentPlanner aiAgentPlanner;
     private final ToolExecutionService toolExecutionService;
     private final SkillExecutionService skillExecutionService;
     private final AgentSessionMemoryService memoryService;
@@ -24,14 +24,14 @@ public class AgentChatService {
 
     public AgentChatService(
             RuleBasedToolPlanner toolPlanner,
-            AiFunctionCallingAgent aiFunctionCallingAgent,
+            AiAgentPlanner aiAgentPlanner,
             ToolExecutionService toolExecutionService,
             SkillExecutionService skillExecutionService,
             AgentSessionMemoryService memoryService,
             ObjectMapper objectMapper
     ) {
         this.toolPlanner = toolPlanner;
-        this.aiFunctionCallingAgent = aiFunctionCallingAgent;
+        this.aiAgentPlanner = aiAgentPlanner;
         this.toolExecutionService = toolExecutionService;
         this.skillExecutionService = skillExecutionService;
         this.memoryService = memoryService;
@@ -43,27 +43,9 @@ public class AgentChatService {
         var history = memoryService.recentMessages(sessionId);
         memoryService.appendUserMessage(sessionId, request.message());
 
-        if (aiFunctionCallingAgent.available()) {
-            AiFunctionCallingResult aiResult = aiFunctionCallingAgent.chat(request, history);
-            ToolExecutionResponse firstExecution = aiResult.toolExecutions().isEmpty()
-                    ? null
-                    : aiResult.toolExecutions().getFirst();
-            memoryService.appendAssistantMessage(sessionId, aiResult.finalAnswer());
-            return new AgentChatResponse(
-                    sessionId,
-                    request.message(),
-                    "SPRING_AI_FUNCTION_CALLING",
-                    AgentPlanType.TOOL.name(),
-                    firstExecution == null ? null : firstExecution.toolName(),
-                    null,
-                    Map.of(),
-                    firstExecution,
-                    null,
-                    aiResult.finalAnswer()
-            );
-        }
-
-        AgentPlan plan = toolPlanner.plan(request);
+        Optional<AgentPlan> aiPlan = aiAgentPlanner.plan(request, history);
+        String plannerType = aiPlan.isPresent() ? "SPRING_AI_LLM_PLANNER" : "RULE_BASED_FALLBACK";
+        AgentPlan plan = aiPlan.orElseGet(() -> toolPlanner.plan(request));
         if (plan.type() == AgentPlanType.SKILL) {
             SkillExecutionResponse skillExecution = skillExecutionService.execute(
                     new SkillExecutionRequest(plan.name(), plan.arguments())
@@ -73,7 +55,7 @@ public class AgentChatService {
             return new AgentChatResponse(
                     sessionId,
                     request.message(),
-                    "RULE_BASED_FALLBACK",
+                    plannerType,
                     plan.type().name(),
                     null,
                     plan.name(),
@@ -92,7 +74,7 @@ public class AgentChatService {
         return new AgentChatResponse(
                 sessionId,
                 request.message(),
-                "RULE_BASED_FALLBACK",
+                plannerType,
                 plan.type().name(),
                 plan.name(),
                 null,
