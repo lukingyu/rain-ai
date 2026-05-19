@@ -36,6 +36,10 @@ public class EmbeddingService {
         return aiRuntimeStatusService.embeddingAvailable();
     }
 
+    public void deleteDocumentEmbeddings(UUID documentId) {
+        embeddingRecordRepository.deleteByDocumentId(documentId);
+    }
+
     public void rebuildDocumentEmbeddings(UUID documentId, List<DocumentChunk> chunks) {
         if (!available() || chunks.isEmpty()) {
             return;
