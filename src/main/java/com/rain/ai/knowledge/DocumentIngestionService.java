@@ -17,18 +17,18 @@ public class DocumentIngestionService {
 
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeDocumentRepository documentRepository;
-    private final DocumentIngestionMessagePublisher messagePublisher;
+    private final DocumentIngestionOutboxRepository outboxRepository;
     private final Path uploadDir;
 
     public DocumentIngestionService(
             KnowledgeBaseService knowledgeBaseService,
             KnowledgeDocumentRepository documentRepository,
-            DocumentIngestionMessagePublisher messagePublisher,
+            DocumentIngestionOutboxRepository outboxRepository,
             @Value("${rain.ai.storage.upload-dir}") String uploadDir
     ) {
         this.knowledgeBaseService = knowledgeBaseService;
         this.documentRepository = documentRepository;
-        this.messagePublisher = messagePublisher;
+        this.outboxRepository = outboxRepository;
         this.uploadDir = Path.of(uploadDir);
     }
 
@@ -52,7 +52,7 @@ public class DocumentIngestionService {
         );
         documentRepository.save(document);
 
-        publishAfterCommit(document);
+        saveOutbox(document);
 
         return new DocumentUploadResult(document);
     }
@@ -73,23 +73,15 @@ public class DocumentIngestionService {
         );
         documentRepository.updateStatus(document.id(), DocumentStatus.PENDING, null);
 
-        publishAfterCommit(pendingDocument);
+        saveOutbox(pendingDocument);
         return new DocumentUploadResult(pendingDocument);
     }
 
-    private void publishAfterCommit(KnowledgeDocument document) {
-        DocumentIngestionMessage message = new DocumentIngestionMessage(
+    private void saveOutbox(KnowledgeDocument document) {
+        outboxRepository.save(
                 document.id(),
                 document.knowledgeBaseId(),
                 document.storagePath()
-        );
-        org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(
-                new org.springframework.transaction.support.TransactionSynchronization() {
-                    @Override
-                    public void afterCommit() {
-                        messagePublisher.publish(message);
-                    }
-                }
         );
     }
 

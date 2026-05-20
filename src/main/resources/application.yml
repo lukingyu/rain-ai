@@ -67,5 +67,9 @@ rain:
       name-server: localhost:9876
       producer-group: rain-ai-producer-group
       document-consumer-group: rain-ai-document-ingestion-consumer-group
+      outbox:
+        fixed-delay-ms: 2000
+        batch-size: 16
+        max-retry-count: 10
       topics:
         document-ingestion: rain-ai-document-ingestion
