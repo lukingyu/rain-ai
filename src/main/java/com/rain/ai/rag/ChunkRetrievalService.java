@@ -18,53 +18,40 @@ public class ChunkRetrievalService {
 
     private static final int MAX_KEYWORDS = 8;
     private static final int MAX_CHUNKS = 5;
-    private static final int VECTOR_CANDIDATE_LIMIT = 20;
-    private static final int KEYWORD_CANDIDATE_LIMIT = 20;
 
     private final EmbeddingService embeddingService;
     private final EmbeddingRecordRepository embeddingRecordRepository;
     private final DocumentChunkRepository documentChunkRepository;
-    private final HybridChunkRanker hybridChunkRanker;
 
     public ChunkRetrievalService(
             EmbeddingService embeddingService,
             EmbeddingRecordRepository embeddingRecordRepository,
-            DocumentChunkRepository documentChunkRepository,
-            HybridChunkRanker hybridChunkRanker
+            DocumentChunkRepository documentChunkRepository
     ) {
         this.embeddingService = embeddingService;
         this.embeddingRecordRepository = embeddingRecordRepository;
         this.documentChunkRepository = documentChunkRepository;
-        this.hybridChunkRanker = hybridChunkRanker;
     }
 
     public ChunkRetrievalResult retrieve(UUID knowledgeBaseId, String question) {
-        List<DocumentChunk> vectorCandidates = retrieveVectorCandidates(knowledgeBaseId, question);
-        List<DocumentChunk> keywordCandidates = retrieveKeywordCandidates(knowledgeBaseId, question);
-        if (vectorCandidates.isEmpty() && keywordCandidates.isEmpty()) {
-            List<DocumentChunk> latestChunks = documentChunkRepository.findLatestByKnowledgeBaseId(
-                    knowledgeBaseId,
-                    MAX_CHUNKS
-            );
-            return new ChunkRetrievalResult(latestChunks, "无有效候选，降级返回最新分片");
+        // RAG 召回保持直线流程：向量先找语义相似分片，关键词只负责补足结果数量。
+        List<DocumentChunk> vectorChunks = retrieveByVector(knowledgeBaseId, question);
+        List<DocumentChunk> chunks = new ArrayList<>(vectorChunks);
+        fillByKeyword(knowledgeBaseId, question, chunks);
+        if (chunks.isEmpty()) {
+            chunks.addAll(documentChunkRepository.findLatestByKnowledgeBaseId(knowledgeBaseId, MAX_CHUNKS));
         }
 
-        List<DocumentChunk> fusedChunks = hybridChunkRanker.fuse(
-                vectorCandidates,
-                keywordCandidates,
-                MAX_CHUNKS
-        );
         return new ChunkRetrievalResult(
-                fusedChunks,
-                "混合召回 RRF，向量候选=%d，关键词候选=%d，融合后=%d".formatted(
-                        vectorCandidates.size(),
-                        keywordCandidates.size(),
-                        fusedChunks.size()
+                chunks.stream().limit(MAX_CHUNKS).toList(),
+                "向量优先召回，向量=%d，关键词补充=%d".formatted(
+                        vectorChunks.size(),
+                        Math.max(0, chunks.size() - vectorChunks.size())
                 )
         );
     }
 
-    private List<DocumentChunk> retrieveVectorCandidates(UUID knowledgeBaseId, String question) {
+    private List<DocumentChunk> retrieveByVector(UUID knowledgeBaseId, String question) {
         String queryEmbedding = embeddingService.embedQuery(question);
         if (queryEmbedding == null) {
             return List.of();
@@ -72,29 +59,33 @@ public class ChunkRetrievalService {
         return embeddingRecordRepository.searchSimilarChunks(
                 knowledgeBaseId,
                 queryEmbedding,
-                VECTOR_CANDIDATE_LIMIT
+                MAX_CHUNKS
         );
     }
 
-    private List<DocumentChunk> retrieveKeywordCandidates(UUID knowledgeBaseId, String question) {
+    private void fillByKeyword(UUID knowledgeBaseId, String question, List<DocumentChunk> chunks) {
         List<String> keywords = extractKeywords(question);
-        Map<UUID, DocumentChunk> result = new LinkedHashMap<>();
+        Map<UUID, DocumentChunk> selectedChunks = new LinkedHashMap<>();
+        for (DocumentChunk chunk : chunks) {
+            selectedChunks.put(chunk.id(), chunk);
+        }
+
         for (String keyword : keywords) {
-            List<DocumentChunk> chunks = documentChunkRepository.searchByKnowledgeBaseId(
+            List<DocumentChunk> matchedChunks = documentChunkRepository.searchByKnowledgeBaseId(
                     knowledgeBaseId,
                     keyword,
-                    KEYWORD_CANDIDATE_LIMIT
+                    MAX_CHUNKS
             );
-            for (DocumentChunk chunk : chunks) {
-                result.putIfAbsent(chunk.id(), chunk);
+            for (DocumentChunk chunk : matchedChunks) {
+                selectedChunks.putIfAbsent(chunk.id(), chunk);
             }
-            if (result.size() >= KEYWORD_CANDIDATE_LIMIT) {
+            if (selectedChunks.size() >= MAX_CHUNKS) {
                 break;
             }
         }
-        return result.values().stream()
-                .limit(KEYWORD_CANDIDATE_LIMIT)
-                .toList();
+
+        chunks.clear();
+        chunks.addAll(selectedChunks.values().stream().limit(MAX_CHUNKS).toList());
     }
 
     private List<String> extractKeywords(String question) {

@@ -5,7 +5,6 @@ import java.util.UUID;
 public record RagCitation(
         UUID documentId,
         int chunkIndex,
-        String content,
-        boolean truncated
+        String content
 ) {
 }

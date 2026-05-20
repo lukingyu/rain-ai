@@ -2,6 +2,7 @@ package com.rain.ai.rag;
 
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
+import com.rain.ai.knowledge.DocumentChunk;
 import com.rain.ai.knowledge.KnowledgeBaseRepository;
 import org.springframework.stereotype.Service;
 
@@ -12,20 +13,17 @@ public class RagService {
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
     private final ChunkRetrievalService chunkRetrievalService;
-    private final PromptContextAssembler promptContextAssembler;
     private final PromptEngine promptEngine;
     private final AiAnswerClient aiAnswerClient;
 
     public RagService(
             KnowledgeBaseRepository knowledgeBaseRepository,
             ChunkRetrievalService chunkRetrievalService,
-            PromptContextAssembler promptContextAssembler,
             PromptEngine promptEngine,
             AiAnswerClient aiAnswerClient
     ) {
         this.knowledgeBaseRepository = knowledgeBaseRepository;
         this.chunkRetrievalService = chunkRetrievalService;
-        this.promptContextAssembler = promptContextAssembler;
         this.promptEngine = promptEngine;
         this.aiAnswerClient = aiAnswerClient;
     }
@@ -38,16 +36,11 @@ public class RagService {
                 request.knowledgeBaseId(),
                 request.question()
         );
-        PromptContext promptContext = promptContextAssembler.assemble(retrievalResult.chunks());
-        List<RagCitation> citations = promptContext.segments().stream()
-                .map(segment -> new RagCitation(
-                        segment.documentId(),
-                        segment.chunkIndex(),
-                        segment.content(),
-                        segment.truncated()
-                ))
+        List<DocumentChunk> chunks = retrievalResult.chunks();
+        List<RagCitation> citations = chunks.stream()
+                .map(chunk -> new RagCitation(chunk.documentId(), chunk.chunkIndex(), chunk.content()))
                 .toList();
-        RagPrompt prompt = promptEngine.build(request.question(), promptContext);
+        RagPrompt prompt = promptEngine.build(request.question(), chunks);
         AiAnswer aiAnswer = aiAnswerClient.answer(prompt, citations);
 
         return new RagAnswerResponse(
@@ -56,15 +49,7 @@ public class RagService {
                 aiAnswer.text(),
                 citations,
                 aiAnswer.usedModel(),
-                "%s，进入上下文=%d，预算=%d/%d，截断=%d，去重=%d，丢弃=%d".formatted(
-                        retrievalResult.strategy(),
-                        citations.size(),
-                        promptContext.usedTokenCount(),
-                        promptContext.tokenBudget(),
-                        promptContext.truncatedChunkCount(),
-                        promptContext.deduplicatedChunkCount(),
-                        promptContext.omittedChunkCount()
-                )
+                retrievalResult.strategy() + "，进入上下文分片数：" + citations.size()
         );
     }
 }

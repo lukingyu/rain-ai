@@ -1,13 +1,13 @@
 # Rain AI Agent Platform
 
-Rain AI Agent Platform 是一个基于 Spring Boot 的 AI Agent 平台项目基础骨架，计划集成 PostgreSQL、Redis、RocketMQ 和 OpenAI 兼容模型能力。
+Rain AI Agent Platform 是一个基于 Spring Boot 的 AI Agent 平台项目基础骨架，计划集成 PostgreSQL、RocketMQ 和 OpenAI 兼容模型能力。
 
 ## 当前进度
 
 - 已完成 Spring Boot 3.5 + JDK 21 项目骨架。
 - 已完成统一响应和统一异常处理。
 - 已完成健康检查接口。
-- 已完成 PostgreSQL/pgvector、Redis、RocketMQ 本地容器配置。
+- 已完成 PostgreSQL/pgvector、RocketMQ 本地容器配置。
 
 ## 本地环境
 
@@ -32,12 +32,6 @@ cp .env.example .env
 
 ```bash
 docker compose up -d
-```
-
-## 运行测试
-
-```bash
-mvn test
 ```
 
 ## 启动应用
@@ -112,7 +106,7 @@ curl -X POST http://localhost:8080/api/agent/chat \
 
 执行策略：
 
-- 配置真实 `OPENAI_API_KEY` 时，使用 Spring AI `ToolCallback` 进行 Function Calling，由模型选择工具。
+- 配置真实模型 Key 时，使用 Spring AI `ChatModel` 进行 Planner 规划，由模型选择工具或技能。
 - 未配置真实模型 Key 时，自动降级到规则版 Planner，保证本地开发链路可运行。
 
 当前可选择的工具：
@@ -121,8 +115,4 @@ curl -X POST http://localhost:8080/api/agent/chat \
 - 查询失败文档：`document.failed.list`
 - 其他知识库问题：`rag.ask`
 
-Agent Chat 支持 Redis 会话记忆：
-
-- 请求不传 `sessionId` 时，系统自动创建新会话。
-- 后续请求带上同一个 `sessionId`，可以延续最近 20 条对话上下文。
-- `GET /api/agent/sessions/{sessionId}/messages` 可以查看当前会话记忆。
+当前重构版暂不把 Redis 会话缓存作为亮点。后续如果实现长期记忆，会采用数据库保存原始消息，并结合 AI 摘要和事实抽取，而不是简单缓存最近几条对话。

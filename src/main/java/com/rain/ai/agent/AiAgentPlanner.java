@@ -16,7 +16,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Component
@@ -49,12 +48,12 @@ public class AiAgentPlanner {
         return aiRuntimeStatusService.chatAvailable();
     }
 
-    public Optional<AgentPlan> plan(AgentChatRequest request, List<AgentMemoryMessage> history) {
+    public Optional<AgentPlan> plan(AgentChatRequest request) {
         if (!available()) {
             return Optional.empty();
         }
         try {
-            ChatResponse response = chatModelProvider.getObject().call(new Prompt(buildMessages(request, history)));
+            ChatResponse response = chatModelProvider.getObject().call(new Prompt(buildMessages(request)));
             AgentPlan plan = planJsonParser.parse(response.getResult().getOutput().getText());
             validateCapability(plan);
             return Optional.of(plan);
@@ -63,7 +62,7 @@ public class AiAgentPlanner {
         }
     }
 
-    private List<Message> buildMessages(AgentChatRequest request, List<AgentMemoryMessage> history) {
+    private List<Message> buildMessages(AgentChatRequest request) {
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage("""
                 你是 Rain AI 的 Agent Planner，只负责选择下一步要执行的能力，不直接回答用户问题。
@@ -75,15 +74,13 @@ public class AiAgentPlanner {
                 {"type":"TOOL 或 SKILL","name":"能力名称","arguments":{}}
                 如果用户要做知识库运营诊断、健康检查、风险检查或建议生成，优先选择 skill。
                 """));
-        messages.add(new UserMessage(buildPlanningInput(request, history)));
+        messages.add(new UserMessage(buildPlanningInput(request)));
         return messages;
     }
 
-    private String buildPlanningInput(AgentChatRequest request, List<AgentMemoryMessage> history) {
+    private String buildPlanningInput(AgentChatRequest request) {
         return """
                 当前 knowledgeBaseId：%s
-                最近会话历史：
-                %s
                 可用 tools：
                 %s
                 可用 skills：
@@ -92,7 +89,6 @@ public class AiAgentPlanner {
                 %s
                 """.formatted(
                 request.knowledgeBaseId() == null ? "未指定" : request.knowledgeBaseId(),
-                toJson(history),
                 toJson(toolRegistry.listDefinitions()),
                 toJson(skillRegistry.listDefinitions()),
                 request.message()

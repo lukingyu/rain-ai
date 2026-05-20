@@ -16,20 +16,6 @@ services:
       timeout: 5s
       retries: 10
 
-  redis:
-    image: redis:7.4-alpine
-    container_name: rain-ai-redis
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
-    command: ["redis-server", "--appendonly", "yes"]
-    volumes:
-      - rain-ai-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
   rocketmq-namesrv:
     image: apache/rocketmq:5.3.2
     container_name: rain-ai-rocketmq-namesrv
@@ -56,5 +42,4 @@ services:
 
 volumes:
   rain-ai-postgres-data:
-  rain-ai-redis-data:
   rain-ai-rocketmq-store:

@@ -9,6 +9,7 @@ import com.rain.ai.tool.ToolExecutionService;
 import org.springframework.stereotype.Service;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AgentChatService {
@@ -18,39 +19,38 @@ public class AgentChatService {
     private final AiAgentResponder aiAgentResponder;
     private final ToolExecutionService toolExecutionService;
     private final SkillExecutionService skillExecutionService;
-    private final AgentSessionMemoryService memoryService;
 
     public AgentChatService(
             RuleBasedToolPlanner toolPlanner,
             AiAgentPlanner aiAgentPlanner,
             AiAgentResponder aiAgentResponder,
             ToolExecutionService toolExecutionService,
-            SkillExecutionService skillExecutionService,
-            AgentSessionMemoryService memoryService
+            SkillExecutionService skillExecutionService
     ) {
         this.toolPlanner = toolPlanner;
         this.aiAgentPlanner = aiAgentPlanner;
         this.aiAgentResponder = aiAgentResponder;
         this.toolExecutionService = toolExecutionService;
         this.skillExecutionService = skillExecutionService;
-        this.memoryService = memoryService;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
-        String sessionId = memoryService.resolveSessionId(request.sessionId());
-        var history = memoryService.recentMessages(sessionId);
-        memoryService.appendUserMessage(sessionId, request.message());
-
-        Optional<AgentPlan> aiPlan = aiAgentPlanner.plan(request, history);
+        String sessionId = resolveSessionId(request.sessionId());
+        Optional<AgentPlan> aiPlan = aiAgentPlanner.plan(request);
         String plannerType = aiPlan.isPresent() ? "SPRING_AI_LLM_PLANNER" : "RULE_BASED_FALLBACK";
         AgentPlan plan = aiPlan.orElseGet(() -> toolPlanner.plan(request));
 
-        AgentChatResponse response = switch (plan.type()) {
+        return switch (plan.type()) {
             case TOOL -> executeToolPlan(sessionId, request, plannerType, plan);
             case SKILL -> executeSkillPlan(sessionId, request, plannerType, plan);
         };
-        memoryService.appendAssistantMessage(sessionId, response.finalAnswer());
-        return response;
+    }
+
+    private String resolveSessionId(String sessionId) {
+        if (sessionId == null || sessionId.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return sessionId;
     }
 
     private AgentChatResponse executeToolPlan(
