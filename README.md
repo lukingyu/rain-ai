@@ -10,6 +10,7 @@ Rain AI Agent Platform 是一个基于 Spring Boot 3.5、JDK 21、Spring AI、Po
 - 已完成 PostgreSQL/pgvector、RocketMQ 本地容器配置。
 - 已完成基于 Spring AI `TokenTextSplitter`、`VectorStore`、`QuestionAnswerAdvisor` 的 RAG 主链路。
 - 已完成基于 Spring AI `@Tool` 的 Agent 工具调用。
+- 已完成基于 Spring AI `MessageChatMemoryAdvisor` 的 Agent 会话记忆。
 
 ## 本地环境
 
@@ -101,6 +102,7 @@ curl -X POST http://localhost:8080/api/agent/chat \
 
 - 配置真实模型 Key 时，使用 Spring AI `ChatClient` + `@Tool` 完成工具调用。
 - 请求携带 `knowledgeBaseId` 时，同时启用 `QuestionAnswerAdvisor` 注入 RAG 上下文。
+- 请求携带相同 `sessionId` 时，通过 Spring AI `MessageChatMemoryAdvisor` 注入历史对话。
 - 未配置真实模型 Key 时，接口会直接提示模型未配置，不再伪造本地降级回答。
 
 当前可选择的工具：
@@ -110,3 +112,13 @@ curl -X POST http://localhost:8080/api/agent/chat \
 - 检索知识库原文片段：`searchKnowledgeBase`
 
 当前版本已经删除 `agent_task` 和自定义 `skill`。文档处理进度直接看 `knowledge_document.status`；工具调用交给 Spring AI，而不是项目自己维护一套执行框架。
+
+## Agent 记忆
+
+当前会话记忆不是 Redis 最近消息缓存，而是 PostgreSQL 持久化消息流：
+
+- `agent_conversation_message`：保存同一 `sessionId` 下的用户消息、助手消息、工具调用和工具响应。
+- `PostgresAgentChatMemory`：实现 Spring AI `ChatMemory` 接口，负责从数据库读取最近窗口并追加新消息。
+- `MessageChatMemoryAdvisor`：Spring AI 官方 Advisor，负责把历史消息放进当前 `ChatClient` 请求，并在模型回复后写回记忆。
+
+`rain.ai.agent.memory.window-size` 控制每次进入模型上下文的最近消息数。数据库保留完整原始消息流，窗口只是为了控制上下文长度；后续长期摘要记忆会基于这张原始消息表做 AI 压缩，而不是丢弃历史。

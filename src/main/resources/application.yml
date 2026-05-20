@@ -56,8 +56,9 @@ spring:
 
 rain:
   ai:
-    task:
-      default-timeout-seconds: 120
+    agent:
+      memory:
+        window-size: 24
     storage:
       upload-dir: data/uploads
     rocketmq:

@@ -10,6 +10,8 @@ import com.rain.ai.runtime.AiRuntimeStatusService;
 import com.rain.ai.tool.SpringAiToolCatalog;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ public class AgentChatService {
     private final RagAdvisorFactory ragAdvisorFactory;
     private final RagCitationMapper citationMapper;
     private final SpringAiToolCatalog toolCatalog;
+    private final MessageChatMemoryAdvisor memoryAdvisor;
 
     public AgentChatService(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -33,7 +36,8 @@ public class AgentChatService {
             KnowledgeBaseRepository knowledgeBaseRepository,
             RagAdvisorFactory ragAdvisorFactory,
             RagCitationMapper citationMapper,
-            SpringAiToolCatalog toolCatalog
+            SpringAiToolCatalog toolCatalog,
+            MessageChatMemoryAdvisor memoryAdvisor
     ) {
         this.chatModelProvider = chatModelProvider;
         this.aiRuntimeStatusService = aiRuntimeStatusService;
@@ -41,6 +45,7 @@ public class AgentChatService {
         this.ragAdvisorFactory = ragAdvisorFactory;
         this.citationMapper = citationMapper;
         this.toolCatalog = toolCatalog;
+        this.memoryAdvisor = memoryAdvisor;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
@@ -55,6 +60,9 @@ public class AgentChatService {
                 .prompt()
                 .system(systemPrompt(request.knowledgeBaseId()))
                 .user(request.message())
+                .advisors(advisor -> advisor
+                        .advisors(memoryAdvisor)
+                        .param(ChatMemory.CONVERSATION_ID, sessionId))
                 .toolCallbacks(toolCatalog.callbacks());
 
         if (request.knowledgeBaseId() != null) {
@@ -90,6 +98,7 @@ public class AgentChatService {
                 当前 knowledgeBaseId：%s
 
                 你可以自主调用系统提供的 Spring AI 工具。
+                系统会通过 Spring AI MessageChatMemoryAdvisor 注入同一 sessionId 下的历史对话。
                 如果用户要查看知识库、失败文档或检索知识库内容，应优先调用工具。
                 如果当前请求已经指定 knowledgeBaseId，系统会同时通过 RAG Advisor 注入知识库召回资料。
                 回答必须基于工具结果或召回资料，不要编造系统中不存在的信息。
