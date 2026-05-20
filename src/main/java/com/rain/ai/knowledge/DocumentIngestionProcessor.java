@@ -1,7 +1,5 @@
 package com.rain.ai.knowledge;
 
-import com.rain.ai.task.AgentTaskRepository;
-import com.rain.ai.task.TaskStatus;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -19,18 +17,15 @@ import java.util.Map;
 public class DocumentIngestionProcessor {
 
     private final KnowledgeDocumentRepository documentRepository;
-    private final AgentTaskRepository taskRepository;
     private final TokenTextSplitter tokenTextSplitter;
     private final VectorStore vectorStore;
 
     public DocumentIngestionProcessor(
             KnowledgeDocumentRepository documentRepository,
-            AgentTaskRepository taskRepository,
             TokenTextSplitter tokenTextSplitter,
             VectorStore vectorStore
     ) {
         this.documentRepository = documentRepository;
-        this.taskRepository = taskRepository;
         this.tokenTextSplitter = tokenTextSplitter;
         this.vectorStore = vectorStore;
     }
@@ -38,7 +33,6 @@ public class DocumentIngestionProcessor {
     @Transactional
     public void process(DocumentIngestionMessage message) {
         try {
-            taskRepository.updateStatus(message.taskId(), TaskStatus.RUNNING, null, null);
             documentRepository.updateStatus(message.documentId(), DocumentStatus.PARSING, null);
 
             String text = Files.readString(Path.of(message.storagePath()));
@@ -46,18 +40,12 @@ public class DocumentIngestionProcessor {
 
             List<Document> chunks = splitBySpringAi(message, text);
             deleteDocumentVectors(message);
+            documentRepository.updateStatus(message.documentId(), DocumentStatus.EMBEDDING, null);
             vectorStore.add(chunks);
 
             documentRepository.updateStatus(message.documentId(), DocumentStatus.COMPLETED, null);
-            taskRepository.updateStatus(
-                    message.taskId(),
-                    TaskStatus.COMPLETED,
-                    "{\"chunkCount\":%d,\"vectorStore\":\"spring-ai-pgvector\"}".formatted(chunks.size()),
-                    null
-            );
         } catch (Exception exception) {
             documentRepository.updateStatus(message.documentId(), DocumentStatus.FAILED, exception.getMessage());
-            taskRepository.updateStatus(message.taskId(), TaskStatus.FAILED, null, exception.getMessage());
             throw new IllegalStateException("文档摄取处理失败", exception);
         }
     }

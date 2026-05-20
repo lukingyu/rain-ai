@@ -2,10 +2,6 @@ package com.rain.ai.knowledge;
 
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
-import com.rain.ai.task.AgentTask;
-import com.rain.ai.task.AgentTaskRepository;
-import com.rain.ai.task.TaskStatus;
-import com.rain.ai.task.TaskType;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,20 +17,17 @@ public class DocumentIngestionService {
 
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeDocumentRepository documentRepository;
-    private final AgentTaskRepository taskRepository;
     private final DocumentIngestionMessagePublisher messagePublisher;
     private final Path uploadDir;
 
     public DocumentIngestionService(
             KnowledgeBaseService knowledgeBaseService,
             KnowledgeDocumentRepository documentRepository,
-            AgentTaskRepository taskRepository,
             DocumentIngestionMessagePublisher messagePublisher,
             @Value("${rain.ai.storage.upload-dir}") String uploadDir
     ) {
         this.knowledgeBaseService = knowledgeBaseService;
         this.documentRepository = documentRepository;
-        this.taskRepository = taskRepository;
         this.messagePublisher = messagePublisher;
         this.uploadDir = Path.of(uploadDir);
     }
@@ -47,7 +40,6 @@ public class DocumentIngestionService {
 
         KnowledgeBase knowledgeBase = knowledgeBaseService.getRequired(knowledgeBaseId);
         UUID documentId = UUID.randomUUID();
-        UUID taskId = UUID.randomUUID();
         Path storagePath = saveFile(documentId, file);
 
         KnowledgeDocument document = new KnowledgeDocument(
@@ -60,18 +52,9 @@ public class DocumentIngestionService {
         );
         documentRepository.save(document);
 
-        AgentTask task = new AgentTask(
-                taskId,
-                TaskType.DOCUMENT_INGESTION,
-                document.id(),
-                TaskStatus.PENDING,
-                null,
-                null
-        );
-        taskRepository.save(task);
-        publishAfterCommit(document, task);
+        publishAfterCommit(document);
 
-        return new DocumentUploadResult(document, task);
+        return new DocumentUploadResult(document);
     }
 
     @Transactional
@@ -80,7 +63,6 @@ public class DocumentIngestionService {
                 .filter(value -> value.knowledgeBaseId().equals(knowledgeBaseId))
                 .orElseThrow(() -> new BizException(ErrorCode.资源不存在, "文档不存在"));
 
-        UUID taskId = UUID.randomUUID();
         KnowledgeDocument pendingDocument = new KnowledgeDocument(
                 document.id(),
                 document.knowledgeBaseId(),
@@ -91,22 +73,12 @@ public class DocumentIngestionService {
         );
         documentRepository.updateStatus(document.id(), DocumentStatus.PENDING, null);
 
-        AgentTask task = new AgentTask(
-                taskId,
-                TaskType.DOCUMENT_INGESTION,
-                document.id(),
-                TaskStatus.PENDING,
-                null,
-                null
-        );
-        taskRepository.save(task);
-        publishAfterCommit(pendingDocument, task);
-        return new DocumentUploadResult(pendingDocument, task);
+        publishAfterCommit(pendingDocument);
+        return new DocumentUploadResult(pendingDocument);
     }
 
-    private void publishAfterCommit(KnowledgeDocument document, AgentTask task) {
+    private void publishAfterCommit(KnowledgeDocument document) {
         DocumentIngestionMessage message = new DocumentIngestionMessage(
-                task.id(),
                 document.id(),
                 document.knowledgeBaseId(),
                 document.storagePath()

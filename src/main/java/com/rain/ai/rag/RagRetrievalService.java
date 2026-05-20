@@ -10,18 +10,20 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class ChunkRetrievalService {
+public class RagRetrievalService {
 
     private static final int RETRIEVAL_TOP_K = 5;
     private static final double SIMILARITY_THRESHOLD = 0.35;
 
     private final VectorStore vectorStore;
+    private final RagCitationMapper citationMapper;
 
-    public ChunkRetrievalService(VectorStore vectorStore) {
+    public RagRetrievalService(VectorStore vectorStore, RagCitationMapper citationMapper) {
         this.vectorStore = vectorStore;
+        this.citationMapper = citationMapper;
     }
 
-    public ChunkRetrievalResult retrieve(UUID knowledgeBaseId, String question) {
+    public List<RagCitation> retrieveCitations(UUID knowledgeBaseId, String question) {
         FilterExpressionBuilder filter = new FilterExpressionBuilder();
         SearchRequest searchRequest = SearchRequest.builder()
                 .query(question)
@@ -31,6 +33,6 @@ public class ChunkRetrievalService {
                 .build();
 
         List<Document> documents = vectorStore.similaritySearch(searchRequest);
-        return new ChunkRetrievalResult(documents, "Spring AI VectorStore 相似度检索");
+        return citationMapper.from(documents);
     }
 }

@@ -3,7 +3,11 @@ package com.rain.ai.rag;
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
 import com.rain.ai.knowledge.KnowledgeBaseRepository;
-import org.springframework.ai.document.Document;
+import com.rain.ai.runtime.AiRuntimeStatusService;
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.client.ChatClientResponse;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -12,58 +16,55 @@ import java.util.List;
 public class RagService {
 
     private final KnowledgeBaseRepository knowledgeBaseRepository;
-    private final ChunkRetrievalService chunkRetrievalService;
-    private final PromptEngine promptEngine;
-    private final AiAnswerClient aiAnswerClient;
+    private final ObjectProvider<ChatModel> chatModelProvider;
+    private final AiRuntimeStatusService aiRuntimeStatusService;
+    private final RagAdvisorFactory ragAdvisorFactory;
+    private final RagCitationMapper citationMapper;
 
     public RagService(
             KnowledgeBaseRepository knowledgeBaseRepository,
-            ChunkRetrievalService chunkRetrievalService,
-            PromptEngine promptEngine,
-            AiAnswerClient aiAnswerClient
+            ObjectProvider<ChatModel> chatModelProvider,
+            AiRuntimeStatusService aiRuntimeStatusService,
+            RagAdvisorFactory ragAdvisorFactory,
+            RagCitationMapper citationMapper
     ) {
         this.knowledgeBaseRepository = knowledgeBaseRepository;
-        this.chunkRetrievalService = chunkRetrievalService;
-        this.promptEngine = promptEngine;
-        this.aiAnswerClient = aiAnswerClient;
+        this.chatModelProvider = chatModelProvider;
+        this.aiRuntimeStatusService = aiRuntimeStatusService;
+        this.ragAdvisorFactory = ragAdvisorFactory;
+        this.citationMapper = citationMapper;
     }
 
     public RagAnswerResponse ask(RagAskRequest request) {
         knowledgeBaseRepository.findById(request.knowledgeBaseId())
                 .orElseThrow(() -> new BizException(ErrorCode.资源不存在, "知识库不存在"));
+        ChatModel chatModel = chatModelProvider.getIfAvailable();
+        if (chatModel == null || !aiRuntimeStatusService.chatAvailable()) {
+            throw new BizException(ErrorCode.系统错误, "聊天模型未配置，无法执行 RAG 问答");
+        }
 
-        ChunkRetrievalResult retrievalResult = chunkRetrievalService.retrieve(
-                request.knowledgeBaseId(),
-                request.question()
-        );
-        List<Document> documents = retrievalResult.documents();
-        List<RagCitation> citations = documents.stream()
-                .map(document -> new RagCitation(
-                        String.valueOf(document.getMetadata().get("document_id")),
-                        toInt(document.getMetadata().get("chunk_index")),
-                        document.getText()
-                ))
-                .toList();
-        RagPrompt prompt = promptEngine.build(request.question(), documents);
-        AiAnswer aiAnswer = aiAnswerClient.answer(prompt, citations);
+        ChatClientResponse response = ChatClient.builder(chatModel)
+                .build()
+                .prompt()
+                .system("""
+                        你是企业知识库问答助手。
+                        你必须基于知识库召回资料回答，不允许编造资料外的信息。
+                        """)
+                .user(request.question())
+                .advisors(ragAdvisorFactory.forKnowledgeBase(request.knowledgeBaseId()))
+                .call()
+                .chatClientResponse();
+
+        List<RagCitation> citations = citationMapper.from(response);
+        String answer = response.chatResponse().getResult().getOutput().getText();
 
         return new RagAnswerResponse(
                 request.knowledgeBaseId(),
                 request.question(),
-                aiAnswer.text(),
+                answer,
                 citations,
-                aiAnswer.usedModel(),
-                retrievalResult.strategy() + "，进入上下文分片数：" + citations.size()
+                true,
+                "Spring AI QuestionAnswerAdvisor，进入上下文分片数：" + citations.size()
         );
-    }
-
-    private int toInt(Object value) {
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        if (value == null) {
-            return 0;
-        }
-        return Integer.parseInt(String.valueOf(value));
     }
 }

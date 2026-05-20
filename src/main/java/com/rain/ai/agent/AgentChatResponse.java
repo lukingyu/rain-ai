@@ -1,20 +1,16 @@
 package com.rain.ai.agent;
 
-import com.rain.ai.skill.SkillExecutionResponse;
-import com.rain.ai.tool.ToolExecutionResponse;
+import com.rain.ai.rag.RagCitation;
 
-import java.util.Map;
+import java.util.List;
+import java.util.UUID;
 
 public record AgentChatResponse(
         String sessionId,
         String message,
-        String plannerType,
-        String selectedType,
-        String selectedToolName,
-        String selectedSkillName,
-        Map<String, Object> arguments,
-        ToolExecutionResponse toolExecution,
-        SkillExecutionResponse skillExecution,
-        String finalAnswer
+        String agentMode,
+        UUID knowledgeBaseId,
+        String answer,
+        List<RagCitation> citations
 ) {
 }

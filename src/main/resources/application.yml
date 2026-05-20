@@ -37,6 +37,9 @@ spring:
         options:
           model: deepseek-v4-flash
           temperature: 0.1
+          extra-body:
+            thinking:
+              type: disabled
       embedding:
         api-key: ${DASHSCOPE_API_KEY:replace-with-your-api-key}
         base-url: ${DASHSCOPE_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode}
