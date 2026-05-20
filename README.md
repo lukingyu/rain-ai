@@ -121,4 +121,12 @@ curl -X POST http://localhost:8080/api/agent/chat \
 - `PostgresAgentChatMemory`：实现 Spring AI `ChatMemory` 接口，负责从数据库读取最近窗口并追加新消息。
 - `MessageChatMemoryAdvisor`：Spring AI 官方 Advisor，负责把历史消息放进当前 `ChatClient` 请求，并在模型回复后写回记忆。
 
-`rain.ai.agent.memory.window-size` 控制每次进入模型上下文的最近消息数。数据库保留完整原始消息流，窗口只是为了控制上下文长度；后续长期摘要记忆会基于这张原始消息表做 AI 压缩，而不是丢弃历史。
+`rain.ai.agent.memory.window-size` 控制每次进入模型上下文的最近消息数。数据库保留完整原始消息流，窗口只是为了控制上下文长度。
+
+长期摘要记忆由 `agent_conversation_summary` 保存：
+
+- `AgentConversationSummaryService`：当同一会话出现足够多的新消息时，调用 Spring AI `ChatClient.entity(...)` 生成结构化摘要。
+- `ConversationSummaryDraft`：模型结构化输出对象，包含摘要、稳定事实、用户偏好和待确认问题。
+- `AgentChatService`：每次请求先读取长期摘要，并注入系统提示词；最近对话仍由 `MessageChatMemoryAdvisor` 注入。
+
+这形成两层记忆：短期窗口负责上下文连续性，长期摘要负责跨长对话保留稳定信息。

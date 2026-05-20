@@ -59,6 +59,8 @@ rain:
     agent:
       memory:
         window-size: 24
+        summary-trigger-message-count: 12
+        summary-batch-size: 40
     storage:
       upload-dir: data/uploads
     rocketmq:

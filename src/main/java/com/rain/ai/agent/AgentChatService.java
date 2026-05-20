@@ -2,6 +2,8 @@ package com.rain.ai.agent;
 
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
+import com.rain.ai.agent.memory.AgentConversationSummaryService;
+import com.rain.ai.agent.memory.ConversationSummary;
 import com.rain.ai.knowledge.KnowledgeBaseRepository;
 import com.rain.ai.rag.RagAdvisorFactory;
 import com.rain.ai.rag.RagCitation;
@@ -29,6 +31,7 @@ public class AgentChatService {
     private final RagCitationMapper citationMapper;
     private final SpringAiToolCatalog toolCatalog;
     private final MessageChatMemoryAdvisor memoryAdvisor;
+    private final AgentConversationSummaryService summaryService;
 
     public AgentChatService(
             ObjectProvider<ChatModel> chatModelProvider,
@@ -37,7 +40,8 @@ public class AgentChatService {
             RagAdvisorFactory ragAdvisorFactory,
             RagCitationMapper citationMapper,
             SpringAiToolCatalog toolCatalog,
-            MessageChatMemoryAdvisor memoryAdvisor
+            MessageChatMemoryAdvisor memoryAdvisor,
+            AgentConversationSummaryService summaryService
     ) {
         this.chatModelProvider = chatModelProvider;
         this.aiRuntimeStatusService = aiRuntimeStatusService;
@@ -46,6 +50,7 @@ public class AgentChatService {
         this.citationMapper = citationMapper;
         this.toolCatalog = toolCatalog;
         this.memoryAdvisor = memoryAdvisor;
+        this.summaryService = summaryService;
     }
 
     public AgentChatResponse chat(AgentChatRequest request) {
@@ -58,7 +63,7 @@ public class AgentChatService {
         ChatClient.ChatClientRequestSpec prompt = ChatClient.builder(chatModel)
                 .build()
                 .prompt()
-                .system(systemPrompt(request.knowledgeBaseId()))
+                .system(systemPrompt(request.knowledgeBaseId(), longTermSummary(sessionId)))
                 .user(request.message())
                 .advisors(advisor -> advisor
                         .advisors(memoryAdvisor)
@@ -72,6 +77,7 @@ public class AgentChatService {
         }
 
         ChatClientResponse response = prompt.call().chatClientResponse();
+        summaryService.refreshSummaryIfNecessary(sessionId);
         String answer = response.chatResponse().getResult().getOutput().getText();
         List<RagCitation> citations = citationMapper.from(response);
         return new AgentChatResponse(
@@ -91,17 +97,26 @@ public class AgentChatService {
         return sessionId;
     }
 
-    private String systemPrompt(UUID knowledgeBaseId) {
+    private String longTermSummary(String sessionId) {
+        return summaryService.findSummary(sessionId)
+                .map(ConversationSummary::summary)
+                .orElse("暂无长期记忆。");
+    }
+
+    private String systemPrompt(UUID knowledgeBaseId, String longTermSummary) {
         String currentKnowledgeBase = knowledgeBaseId == null ? "未指定" : knowledgeBaseId.toString();
         return """
                 你是 Rain AI 企业知识库 Agent。
                 当前 knowledgeBaseId：%s
+                当前 sessionId 的长期摘要记忆：
+                %s
 
                 你可以自主调用系统提供的 Spring AI 工具。
                 系统会通过 Spring AI MessageChatMemoryAdvisor 注入同一 sessionId 下的历史对话。
+                长期摘要记忆只作为历史偏好和稳定事实参考，不能替代工具结果或知识库召回资料。
                 如果用户要查看知识库、失败文档或检索知识库内容，应优先调用工具。
                 如果当前请求已经指定 knowledgeBaseId，系统会同时通过 RAG Advisor 注入知识库召回资料。
                 回答必须基于工具结果或召回资料，不要编造系统中不存在的信息。
-                """.formatted(currentKnowledgeBase);
+                """.formatted(currentKnowledgeBase, longTermSummary);
     }
 }
