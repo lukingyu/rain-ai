@@ -1,14 +1,14 @@
 Rain AI 是一个面向企业知识库的智能 Agent 平台。
 
 项目第一版 MVP 的核心目标不是做普通聊天机器人，而是验证一条可面试、可讲解的 AI 工程链路：
-用户上传业务文档后，系统异步解析文档，切分为语义片段，调用向量模型生成 embedding，并存入 PostgreSQL pgvector。
+用户上传业务文档后，系统异步解析文档，通过 Spring AI TokenTextSplitter 切分为语义片段，再通过 Spring AI VectorStore 调用向量模型生成 embedding，并存入 PostgreSQL pgvector。
 当用户提问时，系统先根据问题生成查询向量，再通过向量相似度召回最相关的文档片段，最后把召回内容交给大模型生成答案。
 
 Rain AI 当前包含五类核心能力。
 
 第一类是知识库能力。知识库用于隔离不同业务资料，文档必须属于某一个知识库。这样做的原因是避免不同业务域的文档混在一起，导致 RAG 召回污染。
 
-第二类是异步文档摄取能力。用户上传文件后，接口不直接解析和向量化，而是创建 DOCUMENT_INGESTION 任务并投递 RocketMQ 消息。消费者收到消息后再执行文件读取、文本切分、chunk 入库和 embedding 入库。这样可以避免大文件上传接口长时间阻塞，也方便后续扩展重试、失败补偿和任务状态查询。
+第二类是异步文档摄取能力。用户上传文件后，接口不直接解析和向量化，而是创建 DOCUMENT_INGESTION 任务并投递 RocketMQ 消息。消费者收到消息后再执行文件读取、Spring AI 文档切分和 VectorStore 入库。这样可以避免大文件上传接口长时间阻塞，也方便后续扩展重试、失败补偿和任务状态查询。
 
 第三类是 RAG 问答能力。RAG 的关键不是简单调用大模型，而是把企业私有知识通过检索增强的方式注入 Prompt。模型回答必须基于召回片段，不能凭空编造没有出现在知识库中的信息。
 
@@ -20,7 +20,7 @@ Rain AI 的面试亮点包括：
 使用 Spring AI 对接 OpenAI-Compatible 模型供应商；
 使用 DeepSeek 作为聊天模型；
 使用 Qwen text-embedding-v4 作为向量模型；
-使用 pgvector 做语义检索；
+使用 Spring AI VectorStore + pgvector 做语义检索；
 使用 RocketMQ 解耦上传接口和文档处理；
 使用虚拟线程承载同步风格的高并发请求；
 使用 Planner-Executor-Responder 模式组织 Agent 执行流程；

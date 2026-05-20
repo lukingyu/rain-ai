@@ -1,11 +1,11 @@
 package com.rain.ai.rag;
 
-import com.rain.ai.knowledge.DocumentChunk;
+import org.springframework.ai.document.Document;
 
 import java.util.List;
 
 public record ChunkRetrievalResult(
-        List<DocumentChunk> chunks,
+        List<Document> documents,
         String strategy
 ) {
 }

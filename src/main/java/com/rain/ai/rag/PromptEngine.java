@@ -1,6 +1,6 @@
 package com.rain.ai.rag;
 
-import com.rain.ai.knowledge.DocumentChunk;
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -8,7 +8,7 @@ import java.util.List;
 @Component
 public class PromptEngine {
 
-    public RagPrompt build(String question, List<DocumentChunk> chunks) {
+    public RagPrompt build(String question, List<Document> documents) {
         String systemPrompt = """
                 你是企业知识库问答助手。
                 你必须只依据用户给出的参考资料回答问题。
@@ -17,16 +17,16 @@ public class PromptEngine {
                 """;
 
         StringBuilder contextBuilder = new StringBuilder();
-        for (int index = 0; index < chunks.size(); index++) {
-            DocumentChunk chunk = chunks.get(index);
+        for (int index = 0; index < documents.size(); index++) {
+            Document document = documents.get(index);
             contextBuilder.append("【资料")
                     .append(index + 1)
                     .append("，文档ID=")
-                    .append(chunk.documentId())
+                    .append(document.getMetadata().get("document_id"))
                     .append("，分片=")
-                    .append(chunk.chunkIndex())
+                    .append(document.getMetadata().get("chunk_index"))
                     .append("】\n")
-                    .append(chunk.content())
+                    .append(document.getText())
                     .append("\n\n");
         }
 

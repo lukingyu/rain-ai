@@ -1,45 +1,38 @@
 package com.rain.ai.knowledge;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rain.ai.task.AgentTaskRepository;
 import com.rain.ai.task.TaskStatus;
-import com.rain.ai.embedding.EmbeddingService;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
+import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 @Service
 public class DocumentIngestionProcessor {
 
     private final KnowledgeDocumentRepository documentRepository;
-    private final DocumentChunkRepository chunkRepository;
     private final AgentTaskRepository taskRepository;
-    private final TextChunker textChunker;
-    private final EmbeddingService embeddingService;
-    private final ObjectMapper objectMapper;
+    private final TokenTextSplitter tokenTextSplitter;
+    private final VectorStore vectorStore;
 
     public DocumentIngestionProcessor(
             KnowledgeDocumentRepository documentRepository,
-            DocumentChunkRepository chunkRepository,
             AgentTaskRepository taskRepository,
-            TextChunker textChunker,
-            EmbeddingService embeddingService,
-            ObjectMapper objectMapper
+            TokenTextSplitter tokenTextSplitter,
+            VectorStore vectorStore
     ) {
         this.documentRepository = documentRepository;
-        this.chunkRepository = chunkRepository;
         this.taskRepository = taskRepository;
-        this.textChunker = textChunker;
-        this.embeddingService = embeddingService;
-        this.objectMapper = objectMapper;
+        this.tokenTextSplitter = tokenTextSplitter;
+        this.vectorStore = vectorStore;
     }
 
     @Transactional
@@ -51,18 +44,15 @@ public class DocumentIngestionProcessor {
             String text = Files.readString(Path.of(message.storagePath()));
             documentRepository.updateStatus(message.documentId(), DocumentStatus.CHUNKING, null);
 
-            List<ChunkSegment> segments = textChunker.split(text);
-            embeddingService.deleteDocumentEmbeddings(message.documentId());
-            chunkRepository.deleteByDocumentId(message.documentId());
-            List<DocumentChunk> chunks = toChunks(message, segments);
-            chunkRepository.saveAll(chunks);
-            embeddingService.rebuildDocumentEmbeddings(message.documentId(), chunks);
+            List<Document> chunks = splitBySpringAi(message, text);
+            deleteDocumentVectors(message);
+            vectorStore.add(chunks);
 
             documentRepository.updateStatus(message.documentId(), DocumentStatus.COMPLETED, null);
             taskRepository.updateStatus(
                     message.taskId(),
                     TaskStatus.COMPLETED,
-                    "{\"chunkCount\":%d,\"embeddingEnabled\":%s}".formatted(segments.size(), embeddingService.available()),
+                    "{\"chunkCount\":%d,\"vectorStore\":\"spring-ai-pgvector\"}".formatted(chunks.size()),
                     null
             );
         } catch (Exception exception) {
@@ -72,38 +62,30 @@ public class DocumentIngestionProcessor {
         }
     }
 
-    private List<DocumentChunk> toChunks(DocumentIngestionMessage message, List<ChunkSegment> segments) {
-        List<DocumentChunk> chunks = new ArrayList<>();
-        Instant now = Instant.now();
-        for (int index = 0; index < segments.size(); index++) {
-            ChunkSegment segment = segments.get(index);
-            chunks.add(new DocumentChunk(
-                    UUID.randomUUID(),
-                    message.workspaceId(),
-                    message.knowledgeBaseId(),
-                    message.documentId(),
-                    index,
-                    segment.content(),
-                    segment.tokenCount(),
-                    toMetadata(segment),
-                    now
-            ));
+    private List<Document> splitBySpringAi(DocumentIngestionMessage message, String text) {
+        Document sourceDocument = Document.builder()
+                .text(text)
+                .metadata(Map.of(
+                        "source", "document_ingestion",
+                        "workspace_id", message.workspaceId(),
+                        "knowledge_base_id", message.knowledgeBaseId().toString(),
+                        "document_id", message.documentId().toString(),
+                        "storage_path", message.storagePath()
+                ))
+                .build();
+
+        List<Document> splitDocuments = tokenTextSplitter.split(sourceDocument);
+        List<Document> chunks = new ArrayList<>(splitDocuments.size());
+        for (int index = 0; index < splitDocuments.size(); index++) {
+            chunks.add(splitDocuments.get(index).mutate()
+                    .metadata("chunk_index", index)
+                    .build());
         }
         return chunks;
     }
 
-    private String toMetadata(ChunkSegment segment) {
-        try {
-            return objectMapper.writeValueAsString(Map.of(
-                    "source", "document_ingestion",
-                    "sectionTitle", segment.sectionTitle(),
-                    "charStart", segment.charStart(),
-                    "charEnd", segment.charEnd(),
-                    "boundary", segment.boundary(),
-                    "contentHash", segment.contentHash()
-            ));
-        } catch (JsonProcessingException exception) {
-            throw new IllegalStateException("构建分片元数据失败", exception);
-        }
+    private void deleteDocumentVectors(DocumentIngestionMessage message) {
+        FilterExpressionBuilder builder = new FilterExpressionBuilder();
+        vectorStore.delete(builder.eq("document_id", message.documentId().toString()).build());
     }
 }

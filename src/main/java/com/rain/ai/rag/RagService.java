@@ -2,8 +2,8 @@ package com.rain.ai.rag;
 
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
-import com.rain.ai.knowledge.DocumentChunk;
 import com.rain.ai.knowledge.KnowledgeBaseRepository;
+import org.springframework.ai.document.Document;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -36,11 +36,15 @@ public class RagService {
                 request.knowledgeBaseId(),
                 request.question()
         );
-        List<DocumentChunk> chunks = retrievalResult.chunks();
-        List<RagCitation> citations = chunks.stream()
-                .map(chunk -> new RagCitation(chunk.documentId(), chunk.chunkIndex(), chunk.content()))
+        List<Document> documents = retrievalResult.documents();
+        List<RagCitation> citations = documents.stream()
+                .map(document -> new RagCitation(
+                        String.valueOf(document.getMetadata().get("document_id")),
+                        toInt(document.getMetadata().get("chunk_index")),
+                        document.getText()
+                ))
                 .toList();
-        RagPrompt prompt = promptEngine.build(request.question(), chunks);
+        RagPrompt prompt = promptEngine.build(request.question(), documents);
         AiAnswer aiAnswer = aiAnswerClient.answer(prompt, citations);
 
         return new RagAnswerResponse(
@@ -51,5 +55,15 @@ public class RagService {
                 aiAnswer.usedModel(),
                 retrievalResult.strategy() + "，进入上下文分片数：" + citations.size()
         );
+    }
+
+    private int toInt(Object value) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value == null) {
+            return 0;
+        }
+        return Integer.parseInt(String.valueOf(value));
     }
 }

@@ -43,6 +43,13 @@ spring:
         options:
           model: text-embedding-v4
           dimensions: 1536
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        table-name: rain_ai_vector_store
+        dimensions: 1536
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
 
 rain:
   ai:
