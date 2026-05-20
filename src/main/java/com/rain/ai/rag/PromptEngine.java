@@ -1,32 +1,31 @@
 package com.rain.ai.rag;
 
-import com.rain.ai.knowledge.DocumentChunk;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class PromptEngine {
 
-    public RagPrompt build(String question, List<DocumentChunk> chunks) {
+    public RagPrompt build(String question, PromptContext context) {
         String systemPrompt = """
                 你是企业知识库问答助手。
                 你必须只依据用户给出的参考资料回答问题。
                 如果参考资料不足以回答问题，必须明确说明“资料不足”，不要编造。
                 回答要结构清晰，优先给出结论，再给出依据。
+                涉及具体事实时，必须标注资料编号，例如【资料1】。
                 """;
 
         StringBuilder contextBuilder = new StringBuilder();
-        for (int index = 0; index < chunks.size(); index++) {
-            DocumentChunk chunk = chunks.get(index);
+        for (PromptContextSegment segment : context.segments()) {
             contextBuilder.append("【资料")
-                    .append(index + 1)
+                    .append(segment.citationIndex())
                     .append("，文档ID=")
-                    .append(chunk.documentId())
+                    .append(segment.documentId())
                     .append("，分片=")
-                    .append(chunk.chunkIndex())
+                    .append(segment.chunkIndex())
+                    .append("，已截断=")
+                    .append(segment.truncated())
                     .append("】\n")
-                    .append(chunk.content())
+                    .append(segment.content())
                     .append("\n\n");
         }
 
@@ -36,8 +35,12 @@ public class PromptEngine {
 
                 参考资料：
                 %s
+
+                上下文预算：
+                已使用 %d/%d 个估算 token。
+
                 请基于参考资料回答。
-                """.formatted(question, contextBuilder);
+                """.formatted(question, contextBuilder, context.usedTokenCount(), context.tokenBudget());
 
         return new RagPrompt(systemPrompt, userPrompt);
     }
