@@ -14,7 +14,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 import java.util.UUID;
 
 @Service
@@ -49,37 +48,25 @@ public class DocumentIngestionService {
         KnowledgeBase knowledgeBase = knowledgeBaseService.getRequired(knowledgeBaseId);
         UUID documentId = UUID.randomUUID();
         UUID taskId = UUID.randomUUID();
-        Instant now = Instant.now();
         Path storagePath = saveFile(documentId, file);
 
         KnowledgeDocument document = new KnowledgeDocument(
                 documentId,
-                knowledgeBase.workspaceId(),
                 knowledgeBase.id(),
                 normalizeFilename(file.getOriginalFilename()),
-                file.getContentType(),
-                file.getSize(),
                 storagePath.toString(),
                 DocumentStatus.PENDING,
-                null,
-                now,
-                now
+                null
         );
         documentRepository.save(document);
 
         AgentTask task = new AgentTask(
                 taskId,
-                knowledgeBase.workspaceId(),
                 TaskType.DOCUMENT_INGESTION,
                 document.id(),
                 TaskStatus.PENDING,
-                """
-                        {"documentId":"%s","knowledgeBaseId":"%s"}
-                        """.formatted(document.id(), knowledgeBase.id()).trim(),
                 null,
-                null,
-                now,
-                now
+                null
         );
         taskRepository.save(task);
         publishAfterCommit(document, task);
@@ -94,35 +81,23 @@ public class DocumentIngestionService {
                 .orElseThrow(() -> new BizException(ErrorCode.资源不存在, "文档不存在"));
 
         UUID taskId = UUID.randomUUID();
-        Instant now = Instant.now();
         KnowledgeDocument pendingDocument = new KnowledgeDocument(
                 document.id(),
-                document.workspaceId(),
                 document.knowledgeBaseId(),
                 document.originalFilename(),
-                document.contentType(),
-                document.sizeBytes(),
                 document.storagePath(),
                 DocumentStatus.PENDING,
-                null,
-                document.createdAt(),
-                now
+                null
         );
         documentRepository.updateStatus(document.id(), DocumentStatus.PENDING, null);
 
         AgentTask task = new AgentTask(
                 taskId,
-                document.workspaceId(),
                 TaskType.DOCUMENT_INGESTION,
                 document.id(),
                 TaskStatus.PENDING,
-                """
-                        {"documentId":"%s","knowledgeBaseId":"%s","reingest":true}
-                        """.formatted(document.id(), document.knowledgeBaseId()).trim(),
                 null,
-                null,
-                now,
-                now
+                null
         );
         taskRepository.save(task);
         publishAfterCommit(pendingDocument, task);
@@ -134,7 +109,6 @@ public class DocumentIngestionService {
                 task.id(),
                 document.id(),
                 document.knowledgeBaseId(),
-                document.workspaceId(),
                 document.storagePath()
         );
         org.springframework.transaction.support.TransactionSynchronizationManager.registerSynchronization(

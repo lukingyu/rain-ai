@@ -10,10 +10,8 @@ import com.rain.ai.task.TaskStatus;
 import com.rain.ai.task.TaskType;
 import com.rain.ai.tool.ToolArguments;
 import com.rain.ai.tool.ToolParameter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,18 +22,15 @@ public class SkillExecutionService {
     private final SkillRegistry skillRegistry;
     private final AgentTaskRepository taskRepository;
     private final ObjectMapper objectMapper;
-    private final String defaultWorkspaceId;
 
     public SkillExecutionService(
             SkillRegistry skillRegistry,
             AgentTaskRepository taskRepository,
-            ObjectMapper objectMapper,
-            @Value("${rain.ai.workspace.default-id}") String defaultWorkspaceId
+            ObjectMapper objectMapper
     ) {
         this.skillRegistry = skillRegistry;
         this.taskRepository = taskRepository;
         this.objectMapper = objectMapper;
-        this.defaultWorkspaceId = defaultWorkspaceId;
     }
 
     public SkillExecutionResponse execute(SkillExecutionRequest request) {
@@ -46,15 +41,11 @@ public class SkillExecutionService {
         UUID taskId = UUID.randomUUID();
         AgentTask task = new AgentTask(
                 taskId,
-                defaultWorkspaceId,
                 TaskType.SKILL_EXECUTION,
                 extractAggregateId(arguments).orElse(taskId),
                 TaskStatus.PENDING,
-                toJson(Map.of("skillName", request.skillName(), "arguments", arguments)),
                 null,
-                null,
-                Instant.now(),
-                Instant.now()
+                null
         );
         taskRepository.save(task);
 

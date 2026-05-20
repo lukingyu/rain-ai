@@ -53,8 +53,6 @@ spring:
 
 rain:
   ai:
-    workspace:
-      default-id: default-workspace
     task:
       default-timeout-seconds: 120
     storage:

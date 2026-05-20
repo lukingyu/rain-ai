@@ -8,10 +8,8 @@ import com.rain.ai.task.AgentTask;
 import com.rain.ai.task.AgentTaskRepository;
 import com.rain.ai.task.TaskStatus;
 import com.rain.ai.task.TaskType;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -21,18 +19,15 @@ public class ToolExecutionService {
     private final ToolRegistry toolRegistry;
     private final AgentTaskRepository taskRepository;
     private final ObjectMapper objectMapper;
-    private final String defaultWorkspaceId;
 
     public ToolExecutionService(
             ToolRegistry toolRegistry,
             AgentTaskRepository taskRepository,
-            ObjectMapper objectMapper,
-            @Value("${rain.ai.workspace.default-id}") String defaultWorkspaceId
+            ObjectMapper objectMapper
     ) {
         this.toolRegistry = toolRegistry;
         this.taskRepository = taskRepository;
         this.objectMapper = objectMapper;
-        this.defaultWorkspaceId = defaultWorkspaceId;
     }
 
     public ToolExecutionResponse execute(ToolExecutionRequest request) {
@@ -43,15 +38,11 @@ public class ToolExecutionService {
         UUID taskId = UUID.randomUUID();
         AgentTask task = new AgentTask(
                 taskId,
-                defaultWorkspaceId,
                 TaskType.TOOL_EXECUTION,
                 extractAggregateId(arguments).orElse(taskId),
                 TaskStatus.PENDING,
-                toJson(Map.of("toolName", request.toolName(), "arguments", arguments)),
                 null,
-                null,
-                Instant.now(),
-                Instant.now()
+                null
         );
         taskRepository.save(task);
 

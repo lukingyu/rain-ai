@@ -67,7 +67,6 @@ public class DocumentIngestionProcessor {
                 .text(text)
                 .metadata(Map.of(
                         "source", "document_ingestion",
-                        "workspace_id", message.workspaceId(),
                         "knowledge_base_id", message.knowledgeBaseId().toString(),
                         "document_id", message.documentId().toString(),
                         "storage_path", message.storagePath()

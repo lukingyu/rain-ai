@@ -6,7 +6,6 @@ public record DocumentIngestionMessage(
         UUID taskId,
         UUID documentId,
         UUID knowledgeBaseId,
-        String workspaceId,
         String storagePath
 ) {
 }
