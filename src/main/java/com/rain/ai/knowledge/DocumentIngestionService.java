@@ -10,6 +10,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -63,6 +65,24 @@ public class DocumentIngestionService {
                 .filter(value -> value.knowledgeBaseId().equals(knowledgeBaseId))
                 .orElseThrow(() -> new BizException(ErrorCode.资源不存在, "文档不存在"));
 
+        return new DocumentUploadResult(requeue(document));
+    }
+
+    @Transactional
+    public DocumentReingestBatchResult reingestFailed(UUID knowledgeBaseId) {
+        knowledgeBaseService.getRequired(knowledgeBaseId);
+        List<KnowledgeDocument> failedDocuments = documentRepository.findByKnowledgeBaseIdAndStatus(
+                knowledgeBaseId,
+                DocumentStatus.FAILED
+        );
+        List<KnowledgeDocument> pendingDocuments = new ArrayList<>(failedDocuments.size());
+        for (KnowledgeDocument document : failedDocuments) {
+            pendingDocuments.add(requeue(document));
+        }
+        return new DocumentReingestBatchResult(knowledgeBaseId, pendingDocuments.size(), pendingDocuments);
+    }
+
+    private KnowledgeDocument requeue(KnowledgeDocument document) {
         KnowledgeDocument pendingDocument = new KnowledgeDocument(
                 document.id(),
                 document.knowledgeBaseId(),
@@ -74,7 +94,7 @@ public class DocumentIngestionService {
         documentRepository.updateStatus(document.id(), DocumentStatus.PENDING, null);
 
         saveOutbox(pendingDocument);
-        return new DocumentUploadResult(pendingDocument);
+        return pendingDocument;
     }
 
     private void saveOutbox(KnowledgeDocument document) {

@@ -1,6 +1,7 @@
 package com.rain.ai.api;
 
 import com.rain.ai.common.api.ApiResponse;
+import com.rain.ai.knowledge.DocumentReingestBatchResult;
 import com.rain.ai.knowledge.DocumentIngestionService;
 import com.rain.ai.knowledge.DocumentUploadResult;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,5 +37,10 @@ public class DocumentController {
             @PathVariable UUID documentId
     ) {
         return ApiResponse.success(documentIngestionService.reingest(knowledgeBaseId, documentId));
+    }
+
+    @PostMapping("/failed/reingest")
+    public ApiResponse<DocumentReingestBatchResult> reingestFailed(@PathVariable UUID knowledgeBaseId) {
+        return ApiResponse.success(documentIngestionService.reingestFailed(knowledgeBaseId));
     }
 }

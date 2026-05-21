@@ -3,6 +3,8 @@ package com.rain.ai.tool;
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
 import com.rain.ai.knowledge.DocumentStatus;
+import com.rain.ai.knowledge.DocumentIngestionService;
+import com.rain.ai.knowledge.DocumentReingestBatchResult;
 import com.rain.ai.knowledge.KnowledgeBase;
 import com.rain.ai.knowledge.KnowledgeBaseService;
 import com.rain.ai.knowledge.KnowledgeDocument;
@@ -21,15 +23,18 @@ public class KnowledgeBaseAiTools {
 
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeDocumentRepository documentRepository;
+    private final DocumentIngestionService documentIngestionService;
     private final RagRetrievalService ragRetrievalService;
 
     public KnowledgeBaseAiTools(
             KnowledgeBaseService knowledgeBaseService,
             KnowledgeDocumentRepository documentRepository,
+            DocumentIngestionService documentIngestionService,
             RagRetrievalService ragRetrievalService
     ) {
         this.knowledgeBaseService = knowledgeBaseService;
         this.documentRepository = documentRepository;
+        this.documentIngestionService = documentIngestionService;
         this.ragRetrievalService = ragRetrievalService;
     }
 
@@ -45,6 +50,14 @@ public class KnowledgeBaseAiTools {
         UUID id = parseUuid(knowledgeBaseId, "knowledgeBaseId");
         knowledgeBaseService.getRequired(id);
         return documentRepository.findByKnowledgeBaseIdAndStatus(id, DocumentStatus.FAILED);
+    }
+
+    @Tool(name = "reingestFailedDocuments", description = "重新投递指定知识库下所有处理失败的文档摄取任务")
+    public DocumentReingestBatchResult reingestFailedDocuments(
+            @ToolParam(description = "知识库 ID") String knowledgeBaseId
+    ) {
+        UUID id = parseUuid(knowledgeBaseId, "knowledgeBaseId");
+        return documentIngestionService.reingestFailed(id);
     }
 
     @Tool(name = "searchKnowledgeBase", description = "从指定知识库的向量库中召回与问题最相关的原文片段")

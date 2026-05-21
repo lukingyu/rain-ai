@@ -164,6 +164,7 @@ public class AgentChatService {
                 系统会通过 Spring AI MessageChatMemoryAdvisor 注入同一 sessionId 下的历史对话。
                 长期摘要记忆只作为历史偏好和稳定事实参考，不能替代工具结果或知识库召回资料。
                 如果用户要查看知识库、失败文档或检索知识库内容，应优先调用工具。
+                如果用户明确要求重新处理失败文档，可以调用重驱动工具。
                 如果当前请求已经指定 knowledgeBaseId，系统会同时通过 RAG Advisor 注入知识库召回资料。
                 回答必须基于工具结果或召回资料，不要编造系统中不存在的信息。
                 """.formatted(currentKnowledgeBase, longTermSummary);

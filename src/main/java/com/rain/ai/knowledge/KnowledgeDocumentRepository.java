@@ -84,6 +84,20 @@ public class KnowledgeDocumentRepository {
                 .update();
     }
 
+    public void markFailedIfPending(UUID id, String errorMessage) {
+        jdbcClient.sql("""
+                        UPDATE knowledge_document
+                        SET status = :failed, error_message = :errorMessage
+                        WHERE id = :id
+                          AND status = :pending
+                        """)
+                .param("id", id)
+                .param("failed", DocumentStatus.FAILED.name())
+                .param("pending", DocumentStatus.PENDING.name())
+                .param("errorMessage", errorMessage)
+                .update();
+    }
+
     private KnowledgeDocument mapDocument(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         return new KnowledgeDocument(
                 rs.getObject("id", UUID.class),

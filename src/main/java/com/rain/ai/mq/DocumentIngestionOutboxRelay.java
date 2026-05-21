@@ -3,6 +3,7 @@ package com.rain.ai.mq;
 import com.rain.ai.knowledge.DocumentIngestionMessagePublisher;
 import com.rain.ai.knowledge.DocumentIngestionOutbox;
 import com.rain.ai.knowledge.DocumentIngestionOutboxRepository;
+import com.rain.ai.knowledge.KnowledgeDocumentRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -15,6 +16,7 @@ import java.util.concurrent.ExecutorService;
 public class DocumentIngestionOutboxRelay {
 
     private final DocumentIngestionOutboxRepository outboxRepository;
+    private final KnowledgeDocumentRepository documentRepository;
     private final DocumentIngestionMessagePublisher messagePublisher;
     private final ExecutorService executorService;
     private final int batchSize;
@@ -22,12 +24,14 @@ public class DocumentIngestionOutboxRelay {
 
     public DocumentIngestionOutboxRelay(
             DocumentIngestionOutboxRepository outboxRepository,
+            KnowledgeDocumentRepository documentRepository,
             DocumentIngestionMessagePublisher messagePublisher,
             ExecutorService documentIngestionOutboxExecutor,
             @Value("${rain.ai.rocketmq.outbox.batch-size:16}") int batchSize,
             @Value("${rain.ai.rocketmq.outbox.max-retry-count:10}") int maxRetryCount
     ) {
         this.outboxRepository = outboxRepository;
+        this.documentRepository = documentRepository;
         this.messagePublisher = messagePublisher;
         this.executorService = documentIngestionOutboxExecutor;
         this.batchSize = Math.max(batchSize, 1);
@@ -52,7 +56,14 @@ public class DocumentIngestionOutboxRelay {
             messagePublisher.publish(outbox.toMessage());
             outboxRepository.markSent(outbox.id());
         } catch (Exception exception) {
-            outboxRepository.markFailed(outbox.id(), exception.getMessage());
+            String errorMessage = exception.getMessage();
+            outboxRepository.markFailed(outbox.id(), errorMessage);
+            if (outbox.retryCount() + 1 >= maxRetryCount) {
+                documentRepository.markFailedIfPending(
+                        outbox.documentId(),
+                        "文档摄取消息投递 RocketMQ 失败：" + errorMessage
+                );
+            }
         }
     }
 }
