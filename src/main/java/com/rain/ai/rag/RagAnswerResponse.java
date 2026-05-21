@@ -8,6 +8,7 @@ public record RagAnswerResponse(
         String question,
         String answer,
         List<RagCitation> citations,
+        RagGroundingEvaluation groundingEvaluation,
         boolean usedModel,
         String retrievalSummary
 ) {

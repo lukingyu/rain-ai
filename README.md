@@ -69,13 +69,20 @@ curl http://localhost:8080/api/health
 8. 使用 Spring AI `VectorStore` 写入 pgvector，由框架负责 embedding 调用和向量表操作。
 9. 文档处理完成后状态变为 `COMPLETED`，失败则变为 `FAILED` 并记录 `error_message`。
 10. 问答接口使用 Spring AI `QuestionAnswerAdvisor` 从 `VectorStore` 召回上下文，并把上下文注入 ChatClient。
-11. 应用只保留业务约束和引用片段转换，不再自己手写 Prompt Engine。
+11. 回答生成后使用 Spring AI structured output 做依据性自检，判断回答是否被召回片段支撑。
+12. 应用只保留业务约束和引用片段转换，不再自己手写 Prompt Engine。
 
 ```bash
 curl -X POST http://localhost:8080/api/rag/ask \
   -H "Content-Type: application/json" \
   -d "{\"knowledgeBaseId\":\"你的知识库ID\",\"question\":\"合同审批规则是什么？\"}"
 ```
+
+RAG 返回体中的 `groundingEvaluation` 表示依据性自检结果：
+
+- `grounded`：回答是否被参考片段充分支撑。
+- `conclusion`：审查结论。
+- `unsupportedClaims`：回答中缺少依据的关键结论。
 
 ## Spring AI Tools
 

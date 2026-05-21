@@ -20,19 +20,22 @@ public class RagService {
     private final AiRuntimeStatusService aiRuntimeStatusService;
     private final RagAdvisorFactory ragAdvisorFactory;
     private final RagCitationMapper citationMapper;
+    private final RagGroundingEvaluator groundingEvaluator;
 
     public RagService(
             KnowledgeBaseRepository knowledgeBaseRepository,
             ObjectProvider<ChatModel> chatModelProvider,
             AiRuntimeStatusService aiRuntimeStatusService,
             RagAdvisorFactory ragAdvisorFactory,
-            RagCitationMapper citationMapper
+            RagCitationMapper citationMapper,
+            RagGroundingEvaluator groundingEvaluator
     ) {
         this.knowledgeBaseRepository = knowledgeBaseRepository;
         this.chatModelProvider = chatModelProvider;
         this.aiRuntimeStatusService = aiRuntimeStatusService;
         this.ragAdvisorFactory = ragAdvisorFactory;
         this.citationMapper = citationMapper;
+        this.groundingEvaluator = groundingEvaluator;
     }
 
     public RagAnswerResponse ask(RagAskRequest request) {
@@ -57,12 +60,19 @@ public class RagService {
 
         List<RagCitation> citations = citationMapper.from(response);
         String answer = response.chatResponse().getResult().getOutput().getText();
+        RagGroundingEvaluation groundingEvaluation = groundingEvaluator.evaluate(
+                chatModel,
+                request.question(),
+                answer,
+                citations
+        );
 
         return new RagAnswerResponse(
                 request.knowledgeBaseId(),
                 request.question(),
                 answer,
                 citations,
+                groundingEvaluation,
                 true,
                 "Spring AI QuestionAnswerAdvisor，进入上下文分片数：" + citations.size()
         );
