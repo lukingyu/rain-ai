@@ -7,25 +7,25 @@ import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class DocumentIngestionProcessor {
 
     private final KnowledgeDocumentRepository documentRepository;
+    private final KnowledgeDocumentReader documentReader;
     private final TokenTextSplitter tokenTextSplitter;
     private final VectorStore vectorStore;
 
     public DocumentIngestionProcessor(
             KnowledgeDocumentRepository documentRepository,
+            KnowledgeDocumentReader documentReader,
             TokenTextSplitter tokenTextSplitter,
             VectorStore vectorStore
     ) {
         this.documentRepository = documentRepository;
+        this.documentReader = documentReader;
         this.tokenTextSplitter = tokenTextSplitter;
         this.vectorStore = vectorStore;
     }
@@ -34,12 +34,12 @@ public class DocumentIngestionProcessor {
     public void process(DocumentIngestionMessage message) {
         try {
             documentRepository.updateStatus(message.documentId(), DocumentStatus.PARSING, null);
+            List<Document> documents = documentReader.read(message);
 
-            String text = Files.readString(Path.of(message.storagePath()));
             documentRepository.updateStatus(message.documentId(), DocumentStatus.CHUNKING, null);
-
-            List<Document> chunks = splitBySpringAi(message, text);
+            List<Document> chunks = splitBySpringAi(documents);
             deleteDocumentVectors(message);
+
             documentRepository.updateStatus(message.documentId(), DocumentStatus.EMBEDDING, null);
             vectorStore.add(chunks);
 
@@ -50,18 +50,8 @@ public class DocumentIngestionProcessor {
         }
     }
 
-    private List<Document> splitBySpringAi(DocumentIngestionMessage message, String text) {
-        Document sourceDocument = Document.builder()
-                .text(text)
-                .metadata(Map.of(
-                        "source", "document_ingestion",
-                        "knowledge_base_id", message.knowledgeBaseId().toString(),
-                        "document_id", message.documentId().toString(),
-                        "storage_path", message.storagePath()
-                ))
-                .build();
-
-        List<Document> splitDocuments = tokenTextSplitter.split(sourceDocument);
+    private List<Document> splitBySpringAi(List<Document> documents) {
+        List<Document> splitDocuments = tokenTextSplitter.split(documents);
         List<Document> chunks = new ArrayList<>(splitDocuments.size());
         for (int index = 0; index < splitDocuments.size(); index++) {
             chunks.add(splitDocuments.get(index).mutate()

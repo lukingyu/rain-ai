@@ -8,10 +8,11 @@ Rain AI Agent Platform 是一个基于 Spring Boot 3.5、JDK 21、Spring AI、Po
 - 已完成统一响应和统一异常处理。
 - 已完成健康检查接口。
 - 已完成 PostgreSQL/pgvector、RocketMQ 本地容器配置。
-- 已完成基于 Spring AI `TokenTextSplitter`、`VectorStore`、`QuestionAnswerAdvisor` 的 RAG 主链路。
+- 已完成基于 Spring AI `TikaDocumentReader`、`TokenTextSplitter`、`VectorStore`、`QuestionAnswerAdvisor` 的 RAG 主链路。
 - 已完成基于 Spring AI `@Tool` 的 Agent 工具调用。
 - 已完成基于 Spring AI `MessageChatMemoryAdvisor` 的 Agent 会话记忆。
 - 已完成文档摄取 RocketMQ 可靠投递 outbox，并使用虚拟线程并发投递阻塞式 MQ 请求。
+- 已完成 RocketMQ 消费侧线程、批量、重试次数控制，避免异常文档拖住整批消息。
 
 ## 本地环境
 
@@ -63,11 +64,12 @@ curl http://localhost:8080/api/health
 3. Outbox relay 定时领取待投递消息，用虚拟线程并发调用 RocketMQ producer。
 4. RocketMQ 消费文档摄取消息。
 5. 文档状态依次变为 `PARSING`、`CHUNKING`、`EMBEDDING`。
-6. 使用 Spring AI `TokenTextSplitter` 切分文档，而不是手写切分算法。
-7. 使用 Spring AI `VectorStore` 写入 pgvector，由框架负责 embedding 调用和向量表操作。
-8. 文档处理完成后状态变为 `COMPLETED`，失败则变为 `FAILED` 并记录 `error_message`。
-9. 问答接口使用 Spring AI `QuestionAnswerAdvisor` 从 `VectorStore` 召回上下文，并把上下文注入 ChatClient。
-10. 应用只保留业务约束和引用片段转换，不再自己手写 Prompt Engine。
+6. 使用 Spring AI `TikaDocumentReader` 读取上传文档正文，支持 PDF、Word、HTML、文本等多种常见格式，而不是把文件简单当成字符串读取。
+7. 使用 Spring AI `TokenTextSplitter` 切分文档，而不是手写切分算法。
+8. 使用 Spring AI `VectorStore` 写入 pgvector，由框架负责 embedding 调用和向量表操作。
+9. 文档处理完成后状态变为 `COMPLETED`，失败则变为 `FAILED` 并记录 `error_message`。
+10. 问答接口使用 Spring AI `QuestionAnswerAdvisor` 从 `VectorStore` 召回上下文，并把上下文注入 ChatClient。
+11. 应用只保留业务约束和引用片段转换，不再自己手写 Prompt Engine。
 
 ```bash
 curl -X POST http://localhost:8080/api/rag/ask \
@@ -142,5 +144,6 @@ curl -X POST http://localhost:8080/api/agent/chat \
 - `DocumentIngestionService`：上传或重新摄取文档时，在同一个数据库事务内写 `knowledge_document` 和 outbox。
 - `DocumentIngestionOutboxRelay`：定时领取 `PENDING`、未最终确认的 `SENDING` 或可重试的 `FAILED` 记录，投递 RocketMQ，成功后标记 `SENT`。
 - `DocumentIngestionOutboxConfig`：使用 JDK 21 虚拟线程执行阻塞式 RocketMQ `send`，避免平台线程被大量 MQ 网络 IO 占住。
+- `DocumentIngestionConsumerConfig`：使用 RocketMQ 原生消费线程、单批消息数和最大重试次数控制；文档摄取默认单条消费，避免一条异常消息拖住整批消息。
 
 这个设计解决的是“数据库已经提交，但 MQ 尚未发送时应用宕机”的问题。极端情况下可能重复投递，例如 MQ 已发送但还没标记 `SENT` 时应用重启；消费者会先按 `document_id` 删除旧向量再写入新向量，因此摄取结果保持幂等。
