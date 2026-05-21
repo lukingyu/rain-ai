@@ -4,6 +4,7 @@ import com.rain.ai.knowledge.DocumentIngestionMessagePublisher;
 import com.rain.ai.knowledge.DocumentIngestionOutbox;
 import com.rain.ai.knowledge.DocumentIngestionOutboxRepository;
 import com.rain.ai.knowledge.KnowledgeDocumentRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -26,7 +27,7 @@ public class DocumentIngestionOutboxRelay {
             DocumentIngestionOutboxRepository outboxRepository,
             KnowledgeDocumentRepository documentRepository,
             DocumentIngestionMessagePublisher messagePublisher,
-            ExecutorService documentIngestionOutboxExecutor,
+            @Qualifier("documentIngestionOutboxExecutor") ExecutorService documentIngestionOutboxExecutor,
             @Value("${rain.ai.rocketmq.outbox.batch-size:16}") int batchSize,
             @Value("${rain.ai.rocketmq.outbox.max-retry-count:10}") int maxRetryCount
     ) {

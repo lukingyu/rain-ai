@@ -39,6 +39,11 @@ public class DocumentController {
         return ApiResponse.success(documentIngestionService.reingest(knowledgeBaseId, documentId));
     }
 
+    @PostMapping("/reingest")
+    public ApiResponse<DocumentReingestBatchResult> reingestAll(@PathVariable UUID knowledgeBaseId) {
+        return ApiResponse.success(documentIngestionService.reingestAll(knowledgeBaseId));
+    }
+
     @PostMapping("/failed/reingest")
     public ApiResponse<DocumentReingestBatchResult> reingestFailed(@PathVariable UUID knowledgeBaseId) {
         return ApiResponse.success(documentIngestionService.reingestFailed(knowledgeBaseId));

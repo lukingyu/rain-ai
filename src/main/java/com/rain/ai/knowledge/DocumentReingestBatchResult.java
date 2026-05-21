@@ -5,7 +5,10 @@ import java.util.UUID;
 
 public record DocumentReingestBatchResult(
         UUID knowledgeBaseId,
+        int totalCount,
         int submittedCount,
-        List<KnowledgeDocument> documents
+        int failedCount,
+        List<KnowledgeDocument> documents,
+        List<DocumentReingestFailure> failures
 ) {
 }

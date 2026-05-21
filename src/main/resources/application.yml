@@ -56,6 +56,8 @@ spring:
 
 rain:
   ai:
+    knowledge:
+      reingest-concurrency: 8
     agent:
       memory:
         window-size: 24

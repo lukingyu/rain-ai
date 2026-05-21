@@ -60,6 +60,14 @@ public class KnowledgeBaseAiTools {
         return documentIngestionService.reingestFailed(id);
     }
 
+    @Tool(name = "reingestAllDocuments", description = "重新投递指定知识库下全部文档的摄取任务")
+    public DocumentReingestBatchResult reingestAllDocuments(
+            @ToolParam(description = "知识库 ID") String knowledgeBaseId
+    ) {
+        UUID id = parseUuid(knowledgeBaseId, "knowledgeBaseId");
+        return documentIngestionService.reingestAll(id);
+    }
+
     @Tool(name = "searchKnowledgeBase", description = "从指定知识库的向量库中召回与问题最相关的原文片段")
     public List<RagCitation> searchKnowledgeBase(
             @ToolParam(description = "知识库 ID") String knowledgeBaseId,

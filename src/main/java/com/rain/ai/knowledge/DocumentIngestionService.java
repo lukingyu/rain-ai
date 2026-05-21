@@ -2,17 +2,22 @@ package com.rain.ai.knowledge;
 
 import com.rain.ai.common.exception.BizException;
 import com.rain.ai.common.exception.ErrorCode;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Semaphore;
 
 @Service
 public class DocumentIngestionService {
@@ -20,17 +25,26 @@ public class DocumentIngestionService {
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeDocumentRepository documentRepository;
     private final DocumentIngestionOutboxRepository outboxRepository;
+    private final TransactionTemplate transactionTemplate;
+    private final ExecutorService documentReingestExecutor;
+    private final Semaphore reingestSemaphore;
     private final Path uploadDir;
 
     public DocumentIngestionService(
             KnowledgeBaseService knowledgeBaseService,
             KnowledgeDocumentRepository documentRepository,
             DocumentIngestionOutboxRepository outboxRepository,
-            @Value("${rain.ai.storage.upload-dir}") String uploadDir
+            TransactionTemplate transactionTemplate,
+            @Qualifier("documentReingestExecutor") ExecutorService documentReingestExecutor,
+            @Value("${rain.ai.storage.upload-dir}") String uploadDir,
+            @Value("${rain.ai.knowledge.reingest-concurrency:8}") int reingestConcurrency
     ) {
         this.knowledgeBaseService = knowledgeBaseService;
         this.documentRepository = documentRepository;
         this.outboxRepository = outboxRepository;
+        this.transactionTemplate = transactionTemplate;
+        this.documentReingestExecutor = documentReingestExecutor;
+        this.reingestSemaphore = new Semaphore(Math.max(reingestConcurrency, 1));
         this.uploadDir = Path.of(uploadDir);
     }
 
@@ -68,18 +82,73 @@ public class DocumentIngestionService {
         return new DocumentUploadResult(requeue(document));
     }
 
-    @Transactional
     public DocumentReingestBatchResult reingestFailed(UUID knowledgeBaseId) {
         knowledgeBaseService.getRequired(knowledgeBaseId);
         List<KnowledgeDocument> failedDocuments = documentRepository.findByKnowledgeBaseIdAndStatus(
                 knowledgeBaseId,
                 DocumentStatus.FAILED
         );
-        List<KnowledgeDocument> pendingDocuments = new ArrayList<>(failedDocuments.size());
-        for (KnowledgeDocument document : failedDocuments) {
-            pendingDocuments.add(requeue(document));
+        return reingestBatch(knowledgeBaseId, failedDocuments);
+    }
+
+    public DocumentReingestBatchResult reingestAll(UUID knowledgeBaseId) {
+        knowledgeBaseService.getRequired(knowledgeBaseId);
+        return reingestBatch(knowledgeBaseId, documentRepository.findByKnowledgeBaseId(knowledgeBaseId));
+    }
+
+    private DocumentReingestBatchResult reingestBatch(UUID knowledgeBaseId, List<KnowledgeDocument> documents) {
+        List<CompletableFuture<ReingestOutcome>> futures = documents.stream()
+                .map(this::requeueAsync)
+                .toList();
+
+        List<ReingestOutcome> outcomes = futures.stream()
+                .map(CompletableFuture::join)
+                .sorted(Comparator.comparing(outcome -> String.valueOf(outcome.documentId())))
+                .toList();
+        List<KnowledgeDocument> pendingDocuments = outcomes.stream()
+                .filter(ReingestOutcome::success)
+                .map(ReingestOutcome::document)
+                .toList();
+        List<DocumentReingestFailure> failures = outcomes.stream()
+                .filter(outcome -> !outcome.success())
+                .map(outcome -> new DocumentReingestFailure(outcome.documentId(), outcome.errorMessage()))
+                .toList();
+        return new DocumentReingestBatchResult(
+                knowledgeBaseId,
+                documents.size(),
+                pendingDocuments.size(),
+                failures.size(),
+                pendingDocuments,
+                failures
+        );
+    }
+
+    private CompletableFuture<ReingestOutcome> requeueAsync(KnowledgeDocument document) {
+        return CompletableFuture.supplyAsync(
+                        () -> requeueWithBoundary(document),
+                        documentReingestExecutor
+                )
+                .exceptionally(exception -> ReingestOutcome.failed(document.id(), exception.getMessage()));
+    }
+
+    private ReingestOutcome requeueWithBoundary(KnowledgeDocument document) {
+        try {
+            reingestSemaphore.acquire();
+            try {
+                KnowledgeDocument pendingDocument = transactionTemplate.execute(status -> requeue(document));
+                if (pendingDocument == null) {
+                    return ReingestOutcome.failed(document.id(), "重新投递事务未返回文档结果");
+                }
+                return ReingestOutcome.succeeded(pendingDocument);
+            } finally {
+                reingestSemaphore.release();
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            return ReingestOutcome.failed(document.id(), "批量重新投递被中断");
+        } catch (RuntimeException exception) {
+            return ReingestOutcome.failed(document.id(), exception.getMessage());
         }
-        return new DocumentReingestBatchResult(knowledgeBaseId, pendingDocuments.size(), pendingDocuments);
     }
 
     private KnowledgeDocument requeue(KnowledgeDocument document) {
@@ -121,5 +190,21 @@ public class DocumentIngestionService {
             return "unknown-document";
         }
         return Path.of(originalFilename).getFileName().toString();
+    }
+
+    private record ReingestOutcome(
+            UUID documentId,
+            boolean success,
+            KnowledgeDocument document,
+            String errorMessage
+    ) {
+
+        private static ReingestOutcome succeeded(KnowledgeDocument document) {
+            return new ReingestOutcome(document.id(), true, document, null);
+        }
+
+        private static ReingestOutcome failed(UUID documentId, String errorMessage) {
+            return new ReingestOutcome(documentId, false, null, errorMessage);
+        }
     }
 }
