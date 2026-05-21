@@ -103,11 +103,27 @@ curl -X POST http://localhost:8080/api/agent/chat \
   -d "{\"message\":\"帮我列出有哪些知识库\"}"
 ```
 
+流式对话接口使用 SSE 返回，适合后续前端逐字展示模型输出：
+
+```bash
+curl -N -X POST http://localhost:8080/api/agent/chat/stream \
+  -H "Content-Type: application/json" \
+  -d "{\"message\":\"帮我列出有哪些知识库\"}"
+```
+
+SSE 事件说明：
+
+- `session`：返回本次对话使用的 `sessionId`。
+- `delta`：模型流式输出片段。
+- `done`：本轮输出结束。
+- `error`：模型调用或流式发送失败。
+
 执行策略：
 
 - 配置真实模型 Key 时，使用 Spring AI `ChatClient` + `@Tool` 完成工具调用。
 - 请求携带 `knowledgeBaseId` 时，同时启用 `QuestionAnswerAdvisor` 注入 RAG 上下文。
 - 请求携带相同 `sessionId` 时，通过 Spring AI `MessageChatMemoryAdvisor` 注入历史对话。
+- 流式接口使用 Spring AI `ChatClient.stream().content()`，不是应用自己拆分完整回答伪造流式效果。
 - 未配置真实模型 Key 时，接口会直接提示模型未配置，不再伪造本地降级回答。
 
 当前可选择的工具：

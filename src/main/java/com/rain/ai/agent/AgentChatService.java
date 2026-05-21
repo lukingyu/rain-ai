@@ -55,6 +55,34 @@ public class AgentChatService {
 
     public AgentChatResponse chat(AgentChatRequest request) {
         String sessionId = resolveSessionId(request.sessionId());
+        ChatClient.ChatClientRequestSpec prompt = buildPrompt(request, sessionId);
+
+        ChatClientResponse response = prompt.call().chatClientResponse();
+        summaryService.refreshSummaryIfNecessary(sessionId);
+        String answer = response.chatResponse().getResult().getOutput().getText();
+        List<RagCitation> citations = citationMapper.from(response);
+        return new AgentChatResponse(
+                sessionId,
+                request.message(),
+                "SPRING_AI_TOOL_CALLING",
+                request.knowledgeBaseId(),
+                answer,
+                citations
+        );
+    }
+
+    public AgentChatStream stream(AgentChatRequest request) {
+        String sessionId = resolveSessionId(request.sessionId());
+        ChatClient.ChatClientRequestSpec prompt = buildPrompt(request, sessionId);
+        return new AgentChatStream(
+                sessionId,
+                prompt.stream()
+                        .content()
+                        .doOnComplete(() -> summaryService.refreshSummaryIfNecessary(sessionId))
+        );
+    }
+
+    private ChatClient.ChatClientRequestSpec buildPrompt(AgentChatRequest request, String sessionId) {
         ChatModel chatModel = chatModelProvider.getIfAvailable();
         if (chatModel == null || !aiRuntimeStatusService.chatAvailable()) {
             throw new BizException(ErrorCode.系统错误, "聊天模型未配置，无法执行 Agent 对话");
@@ -76,18 +104,7 @@ public class AgentChatService {
             prompt = prompt.advisors(ragAdvisorFactory.forKnowledgeBase(request.knowledgeBaseId()));
         }
 
-        ChatClientResponse response = prompt.call().chatClientResponse();
-        summaryService.refreshSummaryIfNecessary(sessionId);
-        String answer = response.chatResponse().getResult().getOutput().getText();
-        List<RagCitation> citations = citationMapper.from(response);
-        return new AgentChatResponse(
-                sessionId,
-                request.message(),
-                "SPRING_AI_TOOL_CALLING",
-                request.knowledgeBaseId(),
-                answer,
-                citations
-        );
+        return prompt;
     }
 
     private String resolveSessionId(String sessionId) {
