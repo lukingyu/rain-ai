@@ -122,6 +122,7 @@ SSE 事件说明：
 
 - `session`：返回本次对话使用的 `sessionId`。
 - `delta`：模型流式输出片段。
+- `citations`：当本轮请求启用 RAG 时，返回 Spring AI `QuestionAnswerAdvisor` 召回到的引用片段。
 - `done`：本轮输出结束。
 - `error`：模型调用或流式发送失败。
 
@@ -130,7 +131,7 @@ SSE 事件说明：
 - 配置真实模型 Key 时，使用 Spring AI `ChatClient` + `@Tool` 完成工具调用。
 - 请求携带 `knowledgeBaseId` 时，同时启用 `QuestionAnswerAdvisor` 注入 RAG 上下文。
 - 请求携带相同 `sessionId` 时，通过 Spring AI `MessageChatMemoryAdvisor` 注入历史对话。
-- 流式接口使用 Spring AI `ChatClient.stream().content()`，不是应用自己拆分完整回答伪造流式效果。
+- 流式接口使用 Spring AI `ChatClient.stream().chatClientResponse()`，从真实流式响应中提取 `delta`，并从响应元数据中提取 RAG 引用片段。
 - 未配置真实模型 Key 时，接口会直接提示模型未配置，不再伪造本地降级回答。
 
 当前可选择的工具：

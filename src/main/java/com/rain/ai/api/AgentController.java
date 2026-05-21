@@ -39,15 +39,15 @@ public class AgentController {
         SseEmitter emitter = new SseEmitter(0L);
         AtomicReference<Disposable> disposableRef = new AtomicReference<>();
 
-        if (!send(emitter, "session", new AgentChatStreamEvent(chatStream.sessionId(), ""))) {
+        if (!send(emitter, AgentChatStreamEvent.session(chatStream.sessionId()))) {
             return emitter;
         }
 
-        Disposable disposable = chatStream.content()
+        Disposable disposable = chatStream.events()
                 .subscribe(
-                        content -> send(emitter, "delta", new AgentChatStreamEvent(chatStream.sessionId(), content)),
+                        event -> send(emitter, event),
                         error -> completeWithError(emitter, chatStream.sessionId(), error),
-                        () -> complete(emitter, chatStream.sessionId())
+                        emitter::complete
                 );
         disposableRef.set(disposable);
         emitter.onCompletion(() -> dispose(disposableRef));
@@ -56,9 +56,9 @@ public class AgentController {
         return emitter;
     }
 
-    private boolean send(SseEmitter emitter, String eventName, AgentChatStreamEvent event) {
+    private boolean send(SseEmitter emitter, AgentChatStreamEvent event) {
         try {
-            emitter.send(SseEmitter.event().name(eventName).data(event));
+            emitter.send(SseEmitter.event().name(event.type()).data(event));
             return true;
         } catch (IOException exception) {
             emitter.completeWithError(exception);
@@ -66,14 +66,8 @@ public class AgentController {
         }
     }
 
-    private void complete(SseEmitter emitter, String sessionId) {
-        if (send(emitter, "done", new AgentChatStreamEvent(sessionId, ""))) {
-            emitter.complete();
-        }
-    }
-
     private void completeWithError(SseEmitter emitter, String sessionId, Throwable error) {
-        send(emitter, "error", new AgentChatStreamEvent(sessionId, error.getMessage()));
+        send(emitter, AgentChatStreamEvent.error(sessionId, error.getMessage()));
         emitter.completeWithError(error);
     }
 

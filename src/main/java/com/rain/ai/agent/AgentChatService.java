@@ -17,9 +17,11 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 public class AgentChatService {
@@ -74,12 +76,42 @@ public class AgentChatService {
     public AgentChatStream stream(AgentChatRequest request) {
         String sessionId = resolveSessionId(request.sessionId());
         ChatClient.ChatClientRequestSpec prompt = buildPrompt(request, sessionId);
+        AtomicReference<List<RagCitation>> citationsRef = new AtomicReference<>(List.of());
+        Flux<AgentChatStreamEvent> events = prompt.stream()
+                .chatClientResponse()
+                .<AgentChatStreamEvent>handle((response, sink) -> {
+                    List<RagCitation> citations = citationMapper.from(response);
+                    if (!citations.isEmpty()) {
+                        citationsRef.set(citations);
+                    }
+
+                    String content = streamContent(response);
+                    if (content != null && !content.isEmpty()) {
+                        sink.next(AgentChatStreamEvent.delta(sessionId, content));
+                    }
+                })
+                .concatWith(Flux.defer(() -> {
+                    summaryService.refreshSummaryIfNecessary(sessionId);
+                    List<RagCitation> citations = citationsRef.get();
+                    if (citations.isEmpty()) {
+                        return Flux.just(AgentChatStreamEvent.done(sessionId));
+                    }
+                    return Flux.just(
+                            AgentChatStreamEvent.citations(sessionId, citations),
+                            AgentChatStreamEvent.done(sessionId)
+                    );
+                }));
         return new AgentChatStream(
                 sessionId,
-                prompt.stream()
-                        .content()
-                        .doOnComplete(() -> summaryService.refreshSummaryIfNecessary(sessionId))
+                events
         );
+    }
+
+    private String streamContent(ChatClientResponse response) {
+        if (response.chatResponse() == null || response.chatResponse().getResult() == null) {
+            return null;
+        }
+        return response.chatResponse().getResult().getOutput().getText();
     }
 
     private ChatClient.ChatClientRequestSpec buildPrompt(AgentChatRequest request, String sessionId) {

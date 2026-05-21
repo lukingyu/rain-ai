@@ -11,6 +11,9 @@ import java.util.List;
 public class RagCitationMapper {
 
     public List<RagCitation> from(ChatClientResponse response) {
+        if (response == null || response.chatResponse() == null) {
+            return List.of();
+        }
         List<Document> documents = response.chatResponse()
                 .getMetadata()
                 .getOrDefault(QuestionAnswerAdvisor.RETRIEVED_DOCUMENTS, List.of());
