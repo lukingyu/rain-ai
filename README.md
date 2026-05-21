@@ -13,6 +13,7 @@ Rain AI Agent Platform 是一个基于 Spring Boot 3.5、JDK 21、Spring AI、Po
 - 已完成基于 Spring AI `MessageChatMemoryAdvisor` 的 Agent 会话记忆。
 - 已完成文档摄取 RocketMQ 可靠投递 outbox，并使用虚拟线程并发投递阻塞式 MQ 请求。
 - 已完成 RocketMQ 消费侧线程、批量、重试次数控制，避免异常文档拖住整批消息。
+- 已完成知识库文档列表查询，前端可直接展示文档摄取状态和失败原因。
 
 阶段性架构、流程、表结构和面试讲解见：[后端阶段总结](docs/后端阶段总结.md)。
 
@@ -173,6 +174,7 @@ SSE 事件说明：
 - `document_ingestion_outbox`：保存待投递的文档摄取消息、投递状态、重试次数和失败原因。
 - `DocumentIngestionService`：上传或重新摄取文档时，在同一个数据库事务内写 `knowledge_document` 和 outbox。
 - `DocumentIngestionOutboxRelay`：定时领取 `PENDING`、未最终确认的 `SENDING` 或可重试的 `FAILED` 记录，投递 RocketMQ，成功后标记 `SENT`。
+- `GET /api/knowledge-bases/{knowledgeBaseId}/documents`：查询指定知识库下的文档列表、摄取状态和失败原因。
 - `POST /api/knowledge-bases/{knowledgeBaseId}/documents/reingest`：把指定知识库下全部文档重新置为 `PENDING`，并重新写入 outbox。
 - `POST /api/knowledge-bases/{knowledgeBaseId}/documents/failed/reingest`：把指定知识库下失败文档重新置为 `PENDING`，并重新写入 outbox 等待投递。
 - `DocumentIngestionOutboxConfig`：使用 JDK 21 虚拟线程执行阻塞式 RocketMQ `send`，避免平台线程被大量 MQ 网络 IO 占住。
