@@ -50,6 +50,18 @@ docker compose up -d
 mvn spring-boot:run
 ```
 
+## 启动前端
+
+前端工程位于 `web` 目录，使用 Vite + React + TypeScript 实现。
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+开发环境默认通过 Vite proxy 把 `/api` 转发到 `http://localhost:8080`，所以后端保持 8080 端口启动即可。
+
 ## 健康检查
 
 应用启动后可通过以下命令检查服务状态：

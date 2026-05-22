@@ -3,6 +3,7 @@ target/
 *.log
 *.tmp
 *.swp
+*.tsbuildinfo
 
 .idea/
 *.iml
@@ -14,3 +15,6 @@ Thumbs.db
 
 logs/
 data/
+
+web/node_modules/
+web/dist/
